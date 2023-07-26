@@ -42,10 +42,10 @@ time.sleep(5)
 driver.close()
 """
 
-
-
 lista_horarios = list()
-df = pd.read_excel('Excel/Campeones.xlsx')
+df = pd.read_excel('Excel/Septimo.xlsx')
+entrada = 9
+salida = 22
 
 def ordenarDataFrame(df):
     renglones_por_clv = df.groupby('Clave').size().reset_index(name = 'Opciones')
@@ -147,7 +147,17 @@ minutos = hrs_y_min.str[0].astype(int)*60 +  hrs_y_min.str[1].astype(int)
 #Une la variable miniutos como fin
 df = df.assign(Fin_min = minutos)
 
+if entrada!=0:
+    min_entrada = entrada*60
+    df = df.loc[(df['Inicio_min'] >= min_entrada), :]
+    df = df.reset_index(drop=True)
 
+if salida!=0:
+    min_salida = salida*60
+    df = df.loc[(df['Fin_min'] <= min_salida), :]
+    df = df.reset_index(drop=True) 
+
+print(df)
 
 #Calcula la duración de cada clase en horas
 duracion = df.Fin_min - df.Inicio_min
