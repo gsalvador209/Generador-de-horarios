@@ -44,8 +44,8 @@ driver.close()
 
 lista_horarios = list()
 df = pd.read_excel('Excel/Septimo.xlsx')
-entrada = 9
-salida = 22
+entrada = 11 #Hora de entrada minima
+salida = 22 #Hora máxima de salida
 
 def ordenarDataFrame(df):
     renglones_por_clv = df.groupby('Clave').size().reset_index(name = 'Opciones')
@@ -64,10 +64,6 @@ def abrir_carpeta(ruta):
         subprocess.Popen(["xdg-open", ruta])
     else:
         print("No se pudo abrir la carpeta")    
-
-materias = len(df.Clave.unique())
-df = ordenarDataFrame(df)
-
 
 #Verificación por horario
 def haySolapeHoras(a,b): #DataFrame, comparativa a comparativa b
@@ -102,6 +98,9 @@ def noHaySolape(horario_actual,materia):
             if(haySolapeHoras(horario_actual.iloc[i],materia)):
                 return False
     return True
+
+materias = len(df.Clave.unique())
+df = ordenarDataFrame(df)
 
 #Crea el encabezado de los dummy values de los días (en orden)
 orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'] 
