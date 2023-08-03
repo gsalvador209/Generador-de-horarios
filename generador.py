@@ -44,7 +44,7 @@ driver.close()
 
 lista_horarios = list()
 df = pd.read_excel('Excel/Septimo.xlsx')
-entrada = 11 #Hora de entrada minima
+entrada = 13 #Hora de entrada minima
 salida = 22 #Hora máxima de salida
 
 def ordenarDataFrame(df):
@@ -90,17 +90,20 @@ def noHaySolape(horario_actual,materia):
             Es la fila que contiene toda la info de la materia que se quiere meter
     """
     orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab']
-    for i in range(0,len(horario_actual)):
-        prod = horario_actual.iloc[i].loc[orden] * materia.loc[orden]
-
-        #Ejecuta la funcion all para ver si todos los elementos son cero
-        if(not (prod == 0).all()):
-            if(haySolapeHoras(horario_actual.iloc[i],materia)):
-                return False
+    for i in range(len(horario_actual)):
+        for j in range(len(materia)):
+            grupo = materia.iloc[j]
+            prod = horario_actual.iloc[i].loc[orden] * grupo.loc[orden]
+            #Ejecuta la funcion all para ver si todos los elementos son cero
+            if(not (prod == 0).all()):
+               if(haySolapeHoras(horario_actual.iloc[i],grupo)):
+                   return False
     return True
 
-materias = len(df.Clave.unique())
+no_materia = len(df.Clave.unique())
 df = ordenarDataFrame(df)
+claves = df.Clave.unique().tolist()
+print(claves)
 
 #Crea el encabezado de los dummy values de los días (en orden)
 orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'] 
@@ -146,101 +149,69 @@ minutos = hrs_y_min.str[0].astype(int)*60 +  hrs_y_min.str[1].astype(int)
 #Une la variable miniutos como fin
 df = df.assign(Fin_min = minutos)
 
-if entrada!=0:
+if entrada>0:
     min_entrada = entrada*60
     df = df.loc[(df['Inicio_min'] >= min_entrada), :]
     df = df.reset_index(drop=True)
 
-if salida!=0:
+if salida>0:
     min_salida = salida*60
     df = df.loc[(df['Fin_min'] <= min_salida), :]
     df = df.reset_index(drop=True) 
-
-print(df)
 
 #Calcula la duración de cada clase en horas
 duracion = df.Fin_min - df.Inicio_min
 df = df.assign(Duracion = duracion/60)
 
-
-"""TO DO:
-- Generar un código que se ejecute en paralelo 
-- Generar dos ramas de horarios en paralelo 
-- Extender hasta la mayor cantidad de ramas posibles
-
-"""
-
-def combinarMaterias(horario,indice_actual):
+def combinarMaterias(horario,materia_actual):
     """
     Es una función recursiva que toma los parámetros para ir concatenando un horario
     Parameters
     ------------
         horario: dataFrame
             El horario que se va formando
-        indice_actual: int
-            El indice del renglón del df que se concatena
+        materia_actual: int
+            La materia del renglón del df que se concatena
     
     """
-    #TODO: Implementar el avance por materias y no por índice
-    if indice_actual < len(df):
-        #Concatena el horario con la fila con el índice 'indice_actual' 
-        
-        new_row = df.copy()[df.index == indice_actual]
-        horario = pd.concat([horario, new_row])
-        #print(horario['Nombre'])
-        siguiente = indice_actual + 1
-        #El programa va a corroborar si las siguientes filas son compatibles
-        for i in range(siguiente,len(df)):
-            clv_materia_sig = df.iloc[i]['Clave']
-            if ((horario['Clave']==clv_materia_sig).any()):
-                """
-                TODO:
-                Implememtar la verificación con materias asimétricas
+    # if len(horario.Clave.unique())==len(claves) or materia_actual in horario.Clave:
+    #     return
+    #Obtiene los grupos de la materia actual y los convierte en un arreglo de enteros
+    grupos = df.loc[df["Clave"] == materia_actual].Gpo.unique().tolist()
+    for grupo_actual in grupos:
+        #Obtiene un df que contiene todas las filas de un grupo
+        new_rows = df.loc[(df["Clave"]==materia_actual) & (df["Gpo"]==grupo_actual)]
+        #Esta row puede ser multiple dado que algunos grupos se descomponen así
+        if noHaySolape(horario,new_rows):
+            temp = horario
+            horario = pd.concat([horario, new_rows])
+            if len(horario.Clave.unique()) == len(claves):
+                lista_horarios.append(horario)
+            else:
+                siguiente_mat_ind = claves.index(materia_actual) + 1
+                combinarMaterias(horario,claves[siguiente_mat_ind])
+            horario = temp
                 
-                """
-                continue
-            elif noHaySolape(horario,df.iloc[i]):
-                combinarMaterias(horario,i) #Al ser recursiva, va concatenando las filas del excel que no se solapen y sean diferentes materias
-        
-    if(len(horario.Clave.unique()) == materias): #Si ya se tienen todas las materias 
-        lista_horarios.append(horario)
-        
-       
+            
 
-def procesar_datos(args):
-    #print("Se está procesando")
-    horario, indice, = args
-    combinarMaterias(horario, indice)
 
-# """TODO:
-# -Generar horarios de forma paralela
+# def procesar_datos(args):
+#     #print("Se está procesando")
+#     horario, indice, = args
+#     combinarMaterias(horario, indice)
 
-# """
 
 # def generarHorarios():
-#     """
-#     Genera los horarios, realiza un arbol de posibilidades por cada opcion de la primer materia
-#     """
-#     n=0
-#     #Realiza este proceso mientras que se trate de la misma materia, el dataframe debe estar ordenado por clave
-#     while(df.iloc[n].Clave == df.Clave.unique()[0]): 
-#         horario = pd.DataFrame(columns = df.columns) #crea un df con las mismas columnas para ir armando el horario
-#         combinarMaterias(horario,n)
-#         n = n+1
+#         indices =  df.loc[df['Clave']==df.iloc[0]['Clave']].index
+#         horarios = [None]*len(indices)
 
-
-def generarHorarios():
-
-        indices =  df.loc[df['Clave']==df.iloc[0]['Clave']].index
-        horarios = [None]*len(indices)
-
-        pool = Pool(len(indices)) 
+#         pool = Pool(len(indices)) 
         
-        #print("Procesos:" + str(len(indices)))
+#         #print("Procesos:" + str(len(indices)))
 
-        pool.map(procesar_datos, zip(horarios,indices))
-        pool.close()
-        pool.join()
+#         pool.map(procesar_datos, zip(horarios,indices))
+#         pool.close()
+#         pool.join()
 
 def includes(horario,materia):
     for i in range(0,len(horario)): #Checa con todas las materias del horario
@@ -329,7 +300,8 @@ def imprimirHorarios():
 
 #generarHorarios(df)
 if __name__ == '__main__':
-    generarHorarios()
+    horario = df.head(0)
+    combinarMaterias(horario,claves[0])
 print("Horarios generados: " + str(len(lista_horarios)))
 imprimirHorarios()
 
