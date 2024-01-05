@@ -46,22 +46,26 @@ def llenarNulos(df):
     df = df.dropna(subset=['Días'])
 
 lista_horarios = list()
-df = pd.read_excel('Excel/Septimo.xlsx')
+df = pd.read_excel('Excel/Septimo_Buenos.xlsx')
 
 entrada = 13 #Hora de entrada minima
-salida = 22 #Hora máxima de salida
-clases_sabados = False
-
+salida = 0 #Hora máxima de salida
+clases_sabados = True
 
 df = df.dropna(subset=['Días']).reset_index(drop=True)
 df['Clave'].fillna(method='ffill',inplace=True)
 df['Gpo'].fillna(method='ffill',inplace=True)
 df['Tipo'].fillna(method='ffill',inplace=True)
 df['Cupo'].fillna(method='ffill',inplace=True)
-#df['Nombre'].fillna(method='ffill',inplace=True)
+df['Nombre'].fillna(method='ffill',inplace=True)
+
+df['Clave'] = df['Clave'].astype(int)
+df['Gpo'] = df['Gpo'].astype(int)
+print(df)
 for i in range(len(df)-1):
     if df.iloc[i+1].Profesor == '(PRESENCIAL)':
         df.loc[i+1,'Profesor'] = df.iloc[i].Profesor
+
 
 
 
@@ -71,7 +75,10 @@ def ordenarDataFrame(df):
     df_ordenado = df_ordenado.reset_index(drop=True)
     return df_ordenado
 
-def abrir_carpeta(ruta):
+def abrir_carpeta():
+    ruta = os.getcwd()
+    print(ruta)
+    ruta = ruta + "\Horarios"
     if sys.platform == "win32":
         subprocess.Popen(f'explorer "{ruta}"')
     elif sys.platform == "darwin":
@@ -167,13 +174,15 @@ minutos = hrs_y_min.str[0].astype(int)*60 +  hrs_y_min.str[1].astype(int)
 #Une la variable miniutos como fin
 df = df.assign(Fin_min = minutos)
 
+if not clases_sabados:
+    df.drop(df[(df['Sab']==1)].index,inplace=True)
+
 if entrada>0:
     min_entrada = entrada*60
     if clases_sabados:
         deleted = df.loc[(df['Inicio_min'] < min_entrada) & (df['Sab'] == 0), :]
     else:
         deleted = df.loc[(df['Inicio_min'] < min_entrada),:]
-
     claves_desechadas = deleted.itertuples()
 
     
@@ -189,6 +198,7 @@ if salida>0:
         deleted = df.loc[(df['Fin_min'] > min_salida) & (df['Sab']==0),:]
     else:
         deleted = df.loc[(df['Fin_min'] > min_salida), :]
+    claves_desechadas = deleted.itertuples()
     for fila in claves_desechadas:
         df.drop(df[(df['Clave'] == fila[1]) & (df['Gpo'] == fila[2])].index,inplace=True)
     df = df.reset_index(drop=True)
@@ -326,7 +336,7 @@ def imprimirHorarios():
         #print(horario.iloc[:,0:8].drop(['Tipo','Cupo'],axis=1))
         horario.drop(horario.tail(1).index,inplace=True)
         n+=1
-    abrir_carpeta("Horarios")
+    abrir_carpeta()
     
 
 #Crea un df vacío con las mismas columnas que el df del excel
