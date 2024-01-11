@@ -8,10 +8,14 @@ from selenium import webdriver
 import time
 from io import StringIO
 
-# #TODO: 
-#    -Implementar la lectura y adición en columna del nombre de la materia
-#   - Igualar el nombre de la carpeta en las funciones que lo utilizan
+# TODO: 
+#   - Globalizar el nombre de la carpeta en las funciones que lo utilizan
 #   - Implementar paletas de colores
+#   - Agregar filtros avanzados: clases los viernes, bloqueos de horas, grupos excluidos
+#   - Agregar barra de progreso basándose en los índices actuales de cada materia (multiplicar los indices relativos y dividir
+#     entre el máximo posible).
+#   - Agregar modo grupos preferidos por materia
+ 
 
 def gen_df(claves):
     # Abrir página de la facultad
@@ -21,39 +25,61 @@ def gen_df(claves):
     time.sleep(1)
     campo_clave = driver.find_element("id","clave")
     buscar = driver.find_element("id","buscar")
-
     # Iterar entre todas las claves para ir formando el horario
-    #claves = [1672,1590,1052,1598]
+    #claves = [1055,1672,1590,1052,1598]
+    palabras_excluidas=['Y','E','DE','FUNDAMENTOS','LA','EN','A','AL','INTRODUCCIÓN','SEMINARIO','TALLER','-','SOCIO-HUM.:']
     df = pd.DataFrame()
+    combinaciones = 1
     for clave in claves:
         campo_clave.clear()
         campo_clave.send_keys(clave)
         buscar.click()
-
         page_source = driver.page_source
 
         soup = BeautifulSoup(page_source, features="lxml")
+        nombre_soup = soup.find_all('div',{"class":"col-10"})
+        texto_materia = nombre_soup[0].text.split()
+        nombre_filtrado = ' '.join((filter(lambda s: s not in palabras_excluidas, texto_materia)))
+        
+        nombre_filtrado = ''.join([i for i in nombre_filtrado if not i.isdigit()])
+        nombre_filtrado = nombre_filtrado[1:]
+        if (":" in nombre_filtrado):
+            nombre_filtrado = nombre_filtrado.split(':')
+            nombre_filtrado = nombre_filtrado[1:]
+            nombre_filtrado = ' '.join(nombre_filtrado)
+            
+        
+        
         tables = soup.find_all('table')
+        
         opciones = pd.read_html(StringIO(str(tables[0])))[0]
+        opciones[('AUX','Nombre')] = [nombre_filtrado for _ in range(len(opciones))]
+        combinaciones = combinaciones*len(opciones)
         df = pd.concat([df,opciones],axis=0,ignore_index=True)
         if len(tables)>1:
+            nombre_filtrado_lab = "L." + nombre_filtrado
             opciones2 = pd.read_html(StringIO(str(tables[1])))[0]
+            opciones2[('AUX','Nombre')] = [nombre_filtrado_lab for _ in range(len(opciones2))]
+            combinaciones = combinaciones*len(opciones2)            
             df = pd.concat([df,opciones2],axis=0,ignore_index=True)
 
     driver.quit()
-    df.columns = [col [1] for col in df.columns] #Elimina "grupo sin vacantes"
-    return df
+    df.columns = [col [1] for col in df.columns]
+    return df,combinaciones
 
 def llenarNulos(df):
     df = df.dropna(subset=['Días'])
 
 lista_horarios = list()
-claves_mat = [1672, 1590, 1052, 1598]
+claves_mat = [1055,1672,1590,1052,1598]
+
 
 entrada = 13 #Hora de entrada minima
 salida = 22 #Hora máxima de salida
 clases_sabados = False
-df = gen_df(claves_mat)
+df, combinaciones = gen_df(claves_mat)
+print("\nGenerando los horarios\n")
+print("¡Sin filtros y si no se traslapara ninguna opcion, existirían " + str(combinaciones) + " horarios diferentes!")
 
 df = df.dropna(subset=['Días']).reset_index(drop=True)
 df['Clave'].ffill(inplace=True)
@@ -86,7 +112,7 @@ def abrir_carpeta(ruta):
         print("No se pudo abrir la carpeta")    
 
 #Verificación por horario
-def haySolapeHoras(a,b): #DataFrame, comparativa a comparativa b
+def hayTraslapeHoras(a,b): #DataFrame, comparativa a comparativa b
     if b.Inicio_min - a.Inicio_min == 0: #empiezan a la misma hora
         return True
     if b.Inicio_min - a.Inicio_min > 0: #b empieza después que a
@@ -98,9 +124,9 @@ def haySolapeHoras(a,b): #DataFrame, comparativa a comparativa b
     return False
     
 
-def noHaySolape(horario_actual,materia):    
+def noHayTraslape(horario_actual,materia):    
     """
-    Verifica si existe un solape entre un potencial horario_actual y una materia (renglón del dataframe)
+    Verifica si existe un Traslape entre un potencial horario_actual y una materia (renglón del dataframe)
 
     Parameters
     ----------
@@ -116,7 +142,7 @@ def noHaySolape(horario_actual,materia):
             prod = horario_actual.iloc[i].loc[orden] * grupo.loc[orden]
             #Ejecuta la funcion all para ver si todos los elementos son cero
             if(not (prod == 0).all()):
-               if(haySolapeHoras(horario_actual.iloc[i],grupo)):
+               if(hayTraslapeHoras(horario_actual.iloc[i],grupo)):
                    return False
     return True
 
@@ -218,7 +244,7 @@ def combinarMaterias(horario,materia_actual):
         #Obtiene un df que contiene todas las filas de un grupo
         new_rows = df.loc[(df["Clave"]==materia_actual) & (df["Gpo"]==grupo_actual)]
         #Esta row puede ser multiple dado que algunos grupos se descomponen así
-        if noHaySolape(horario,new_rows):
+        if noHayTraslape(horario,new_rows):
             temp = horario
             horario = pd.concat([horario, new_rows])
             if len(horario.Clave.unique()) == len(claves):
@@ -267,16 +293,16 @@ def plotMateria(df,gnt):
     
     for cat in df.loc[orden]: #Lo que hace es particionar el df a los días de la semana
         if cat == 1:
-            print(df)
+            #print(df)
             gnt.broken_barh([(i,1)], (hora, duracion) ,facecolors = (R, G, B))
-            #nombre_materia = df['Nombre'][:10]                                                     #Corta el texto para que quepa en el cuadro
+            nombre_materia = df['Nombre'][:9]                                                     #Corta el texto para que quepa en el cuadro
             nombre_profe = df['Profesor'].split(" ")
             nombre_pila = nombre_profe[1]
             nombre_pila = nombre_pila[:5]
             apellido = nombre_profe[-2]
             #nombre_pila = df.Profesor[:7]
             inicial = apellido [:1]
-            nombre = "\n" + str(df['Gpo']) + " " + nombre_pila  + " " + inicial                                    
+            nombre = nombre_materia + "\n" + str(df['Gpo']) + " " + nombre_pila  + " " + inicial                                    
             gnt.text(i+0.1,hora+1.5,nombre,color="white",fontweight = "bold",fontsize = 8) #x,y,texto,color,grosor y tamaño
         i = i+1
 
@@ -328,7 +354,7 @@ def imprimirHorarios():
         #print(horario.iloc[:,0:8].drop(['Tipo','Cupo'],axis=1))
         horario.drop(horario.tail(1).index,inplace=True)
         n+=1
-    abrir_carpeta("Horarios")
+    abrir_carpeta("Horarios_generados")
     
 
 #Crea un df vacío con las mismas columnas que el df del excel
