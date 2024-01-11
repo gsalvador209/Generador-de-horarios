@@ -1,71 +1,69 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sbs
-from multiprocess.dummy import Pool
 import subprocess
 import sys
-import os
-
-"""
-TO DO:
-- Entrar a la página de la facultad de ingenieria y probar la clave 1413 (Introducción a la Economia) y extraer la tabla de datos
-- Colocar los datos en un excel y guardarlo
-- Generalizar la función para cualquier clabe
-- Anidar los datos extraidos en un único excell
-
-
+from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
 import time
+from io import StringIO
 
-#Accede al navegador y a la página de la facultad
-driver = webdriver.Chrome()
-driver.get("https://www.ssa.ingenieria.unam.mx/horarios.html")
+# #TODO: 
+#    -Implementar la lectura y adición en columna del nombre de la materia
+#   - Igualar el nombre de la carpeta en las funciones que lo utilizan
+#   - Implementar paletas de colores
 
-campo_clave = driver.find_element("id","clave")
-buscar = driver.find_element("id","buscar")
-campo_clave.send_keys("1413")
-buscar.click()
+def gen_df(claves):
+    # Abrir página de la facultad
+    url = "https://www.ssa.ingenieria.unam.mx/horarios.html"
+    driver = webdriver.Firefox()
+    driver.get("https://www.ssa.ingenieria.unam.mx/horarios.html")
+    time.sleep(1)
+    campo_clave = driver.find_element("id","clave")
+    buscar = driver.find_element("id","buscar")
 
-import re
-import requests
-from colorama import Fore
+    # Iterar entre todas las claves para ir formando el horario
+    #claves = [1672,1590,1052,1598]
+    df = pd.DataFrame()
+    for clave in claves:
+        campo_clave.clear()
+        campo_clave.send_keys(clave)
+        buscar.click()
 
-website = "https://www.ssa.ingenieria.unam.mx/horarios.html"
-resultado = requests.get(website)
-content = resultado.text
-print(content)
+        page_source = driver.page_source
 
-time.sleep(5)
+        soup = BeautifulSoup(page_source, features="lxml")
+        tables = soup.find_all('table')
+        opciones = pd.read_html(StringIO(str(tables[0])))[0]
+        df = pd.concat([df,opciones],axis=0,ignore_index=True)
+        if len(tables)>1:
+            opciones2 = pd.read_html(StringIO(str(tables[1])))[0]
+            df = pd.concat([df,opciones2],axis=0,ignore_index=True)
 
-driver.close()
-"""
+    driver.quit()
+    df.columns = [col [1] for col in df.columns] #Elimina "grupo sin vacantes"
+    return df
 
 def llenarNulos(df):
     df = df.dropna(subset=['Días'])
 
 lista_horarios = list()
-df = pd.read_excel('Excel/Septimo_Buenos.xlsx')
+claves_mat = [1672, 1590, 1052, 1598]
 
 entrada = 13 #Hora de entrada minima
-salida = 0 #Hora máxima de salida
-clases_sabados = True
+salida = 22 #Hora máxima de salida
+clases_sabados = False
+df = gen_df(claves_mat)
 
 df = df.dropna(subset=['Días']).reset_index(drop=True)
-df['Clave'].fillna(method='ffill',inplace=True)
-df['Gpo'].fillna(method='ffill',inplace=True)
-df['Tipo'].fillna(method='ffill',inplace=True)
-df['Cupo'].fillna(method='ffill',inplace=True)
-df['Nombre'].fillna(method='ffill',inplace=True)
-
-df['Clave'] = df['Clave'].astype(int)
-df['Gpo'] = df['Gpo'].astype(int)
-print(df)
+df['Clave'].ffill(inplace=True)
+df['Gpo'].ffill(inplace=True)
+df['Tipo'].ffill(inplace=True)
+df['Cupo'].ffill(inplace=True)
+#df['Nombre'].ffill(inplace=True)
 for i in range(len(df)-1):
     if df.iloc[i+1].Profesor == '(PRESENCIAL)':
         df.loc[i+1,'Profesor'] = df.iloc[i].Profesor
-
 
 
 
@@ -75,10 +73,7 @@ def ordenarDataFrame(df):
     df_ordenado = df_ordenado.reset_index(drop=True)
     return df_ordenado
 
-def abrir_carpeta():
-    ruta = os.getcwd()
-    print(ruta)
-    ruta = ruta + "\Horarios"
+def abrir_carpeta(ruta):
     if sys.platform == "win32":
         subprocess.Popen(f'explorer "{ruta}"')
     elif sys.platform == "darwin":
@@ -128,7 +123,6 @@ def noHaySolape(horario_actual,materia):
 no_materia = len(df.Clave.unique())
 df = ordenarDataFrame(df)
 claves = df.Clave.unique().tolist()
-print(claves)
 
 #Crea el encabezado de los dummy values de los días (en orden)
 orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'] 
@@ -137,8 +131,8 @@ orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab']
 dummy_dias = pd.Series(df.Días).str.get_dummies(sep=', ')
 
 # Reordena y añade los valores de las variables ficticias a la serie "dias" y cambia los NaN por 0
-dummy_dias = dummy_dias.reindex(orden, axis=1).fillna(0, downcast='int64')
-
+dummy_dias = dummy_dias.reindex(orden, axis=1).infer_objects(copy=False)
+dummy_dias
 #Añade este nuevo df al df original
 df = df.assign(**dummy_dias)
 
@@ -174,15 +168,13 @@ minutos = hrs_y_min.str[0].astype(int)*60 +  hrs_y_min.str[1].astype(int)
 #Une la variable miniutos como fin
 df = df.assign(Fin_min = minutos)
 
-if not clases_sabados:
-    df.drop(df[(df['Sab']==1)].index,inplace=True)
-
 if entrada>0:
     min_entrada = entrada*60
     if clases_sabados:
         deleted = df.loc[(df['Inicio_min'] < min_entrada) & (df['Sab'] == 0), :]
     else:
         deleted = df.loc[(df['Inicio_min'] < min_entrada),:]
+
     claves_desechadas = deleted.itertuples()
 
     
@@ -198,7 +190,6 @@ if salida>0:
         deleted = df.loc[(df['Fin_min'] > min_salida) & (df['Sab']==0),:]
     else:
         deleted = df.loc[(df['Fin_min'] > min_salida), :]
-    claves_desechadas = deleted.itertuples()
     for fila in claves_desechadas:
         df.drop(df[(df['Clave'] == fila[1]) & (df['Gpo'] == fila[2])].index,inplace=True)
     df = df.reset_index(drop=True)
@@ -276,15 +267,16 @@ def plotMateria(df,gnt):
     
     for cat in df.loc[orden]: #Lo que hace es particionar el df a los días de la semana
         if cat == 1:
+            print(df)
             gnt.broken_barh([(i,1)], (hora, duracion) ,facecolors = (R, G, B))
-            nombre_materia = df.Nombre[:10]                                                     #Corta el texto para que quepa en el cuadro
-            nombre_profe = df.Profesor.split(" ")
+            #nombre_materia = df['Nombre'][:10]                                                     #Corta el texto para que quepa en el cuadro
+            nombre_profe = df['Profesor'].split(" ")
             nombre_pila = nombre_profe[1]
             nombre_pila = nombre_pila[:5]
             apellido = nombre_profe[-2]
             #nombre_pila = df.Profesor[:7]
             inicial = apellido [:1]
-            nombre = nombre_materia + "\n" + str(df.Gpo) + " " + nombre_pila  + " " + inicial                                    
+            nombre = "\n" + str(df['Gpo']) + " " + nombre_pila  + " " + inicial                                    
             gnt.text(i+0.1,hora+1.5,nombre,color="white",fontweight = "bold",fontsize = 8) #x,y,texto,color,grosor y tamaño
         i = i+1
 
@@ -307,13 +299,13 @@ def plotHorario(horario, numero):
     for i in range(0,len(horario)):
         plotMateria(horario.iloc[i],gnt)
 
-    plt.savefig("Horarios/opción" + str(numero) + ".jpg",dpi = 250)
+    plt.savefig("Horarios_generados/opción" + str(numero) + ".jpg",dpi = 250)
     plt.close()
 
 
 def clearCarpeta():
     import os, shutil
-    folder = 'Horarios/'
+    folder = 'Horarios_generados'
     for filename in os.listdir(folder):
         file_path = os.path.join(folder, filename)
         try:
@@ -336,7 +328,7 @@ def imprimirHorarios():
         #print(horario.iloc[:,0:8].drop(['Tipo','Cupo'],axis=1))
         horario.drop(horario.tail(1).index,inplace=True)
         n+=1
-    abrir_carpeta()
+    abrir_carpeta("Horarios")
     
 
 #Crea un df vacío con las mismas columnas que el df del excel
