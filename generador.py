@@ -29,7 +29,7 @@ def gen_df(claves):
     #claves = [1055,1672,1590,1052,1598]
     palabras_excluidas=['Y','E','DE','FUNDAMENTOS','LA','EN','A','AL','INTRODUCCIÓN','SEMINARIO','TALLER','-','SOCIO-HUM.:']
     df = pd.DataFrame()
-    combinaciones = 1
+    #combinaciones = 1
     for clave in claves:
         campo_clave.clear()
         campo_clave.send_keys(clave)
@@ -54,42 +54,42 @@ def gen_df(claves):
         
         opciones = pd.read_html(StringIO(str(tables[0])))[0]
         opciones[('AUX','Nombre')] = [nombre_filtrado for _ in range(len(opciones))]
-        combinaciones = combinaciones*len(opciones)
+        #combinaciones = combinaciones*len(opciones)
         df = pd.concat([df,opciones],axis=0,ignore_index=True)
         if len(tables)>1:
             nombre_filtrado_lab = "L." + nombre_filtrado
             opciones2 = pd.read_html(StringIO(str(tables[1])))[0]
             opciones2[('AUX','Nombre')] = [nombre_filtrado_lab for _ in range(len(opciones2))]
-            combinaciones = combinaciones*len(opciones2)            
+            #combinaciones = combinaciones*len(opciones2)            
             df = pd.concat([df,opciones2],axis=0,ignore_index=True)
 
     driver.quit()
     df.columns = [col [1] for col in df.columns]
-    return df,combinaciones
+    return df
 
 def llenarNulos(df):
     df = df.dropna(subset=['Días'])
 
 lista_horarios = list()
-claves_mat = [1055,1672,1590,1052,1598]
+claves_mat = [1055,1672,1590,1052,1598,1535]
 
 
 entrada = 13 #Hora de entrada minima
 salida = 22 #Hora máxima de salida
 clases_sabados = False
-df, combinaciones = gen_df(claves_mat)
+df = gen_df(claves_mat)
 print("\nGenerando los horarios\n")
-print("¡Sin filtros y si no se traslapara ninguna opcion, existirían " + str(combinaciones) + " horarios diferentes!")
+#print("¡Sin filtros y si no se traslapara ninguna opcion, existirían " + str(combinaciones) + " horarios diferentes!")
 
-df = df.dropna(subset=['Días']).reset_index(drop=True)
-df['Clave'].ffill(inplace=True)
-df['Gpo'].ffill(inplace=True)
-df['Tipo'].ffill(inplace=True)
-df['Cupo'].ffill(inplace=True)
+# df = df.dropna(subset=['Días']).reset_index(drop=True)
+# df['Clave'].ffill(inplace=True)
+# df['Gpo'].ffill(inplace=True)
+# df['Tipo'].ffill(inplace=True)
+# df['Cupo'].ffill(inplace=True)
 #df['Nombre'].ffill(inplace=True)
-for i in range(len(df)-1):
-    if df.iloc[i+1].Profesor == '(PRESENCIAL)':
-        df.loc[i+1,'Profesor'] = df.iloc[i].Profesor
+# for i in range(len(df)-1):
+#     if df.iloc[i+1].Profesor == '(PRESENCIAL)':
+#         df.loc[i+1,'Profesor'] = df.iloc[i].Profesor
 
 
 
@@ -158,7 +158,7 @@ dummy_dias = pd.Series(df.Días).str.get_dummies(sep=', ')
 
 # Reordena y añade los valores de las variables ficticias a la serie "dias" y cambia los NaN por 0
 dummy_dias = dummy_dias.reindex(orden, axis=1).infer_objects(copy=False)
-dummy_dias
+
 #Añade este nuevo df al df original
 df = df.assign(**dummy_dias)
 

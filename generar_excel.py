@@ -14,7 +14,7 @@ campo_clave = driver.find_element("id","clave")
 buscar = driver.find_element("id","buscar")
 
 # Iterar entre todas las claves para ir formando el horario
-claves = [1055,1672,1590,1052,1598]
+claves = [1535]
 palabras_excluidas=['Y','E','DE','FUNDAMENTOS','LA','EN','A','AL','INTRODUCCIÓN','SEMINARIO','TALLER','-','SOCIO-HUM.:']
 df = pd.DataFrame()
 
@@ -54,4 +54,4 @@ driver.quit()
 df.columns = [col [1] for col in df.columns]
 print("El excel se ha generado exitosamente")
 print(df)
-df.to_excel("Output.xlsx")
+df.to_excel("VLSI.xlsx")
