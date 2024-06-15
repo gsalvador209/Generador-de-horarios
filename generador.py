@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 import time
 from io import StringIO
+from tqdm import tqdm
 
 # TODO: 
 #   - Globalizar el nombre de la carpeta en las funciones que lo utilizan
@@ -26,7 +27,7 @@ def gen_df(claves):
     campo_clave = driver.find_element("id","clave")
     buscar = driver.find_element("id","buscar")
     # Iterar entre todas las claves para ir formando el horario
-    #claves = [1055,1672,1590,1052,1598]
+    #claves = [1687,1858,1959,1052]
     palabras_excluidas=['Y','E','DE','FUNDAMENTOS','LA','EN','A','AL','INTRODUCCIÓN','SEMINARIO','TALLER','-','SOCIO-HUM.:']
     df = pd.DataFrame()
     #combinaciones = 1
@@ -70,16 +71,28 @@ def gen_df(claves):
 def llenarNulos(df):
     df = df.dropna(subset=['Días'])
 
+
+# Inicio del programa
+
 lista_horarios = list()
-claves_mat = [1055,1672,1590,1052,1598,1535]
+claves_mat = [1867,1858,1959,2928,2958]
+combinaciones = 0
 
 
-entrada = 13 #Hora de entrada minima
-salida = 22 #Hora máxima de salida
-clases_sabados = False
+
+entrada = int(input("Ingresa la hora a la que quieres entrar: ")) #Hora de entrada minima
+salida = int(input("Ingresa la hora a la que quieras salir: ")) #Hora máxima de salida
+clases_sabados = input("¿Quieres clases los sábados? (S/N): ") #Si tienes clases
+if clases_sabados == "S":
+    clases_sabados = True
+else:
+    clases_sabados = False
+
+
+
 df = gen_df(claves_mat)
-print("\nGenerando los horarios\n")
-#print("¡Sin filtros y si no se traslapara ninguna opcion, existirían " + str(combinaciones) + " horarios diferentes!")
+df.to_excel("buffer.xlsx",index=False)
+#df = pd.read_excel("Octavo_sem.xlsx")
 
 # df = df.dropna(subset=['Días']).reset_index(drop=True)
 # df['Clave'].ffill(inplace=True)
@@ -194,36 +207,88 @@ minutos = hrs_y_min.str[0].astype(int)*60 +  hrs_y_min.str[1].astype(int)
 #Une la variable miniutos como fin
 df = df.assign(Fin_min = minutos)
 
+
+
 if entrada>0:
     min_entrada = entrada*60
     if clases_sabados:
-        deleted = df.loc[(df['Inicio_min'] < min_entrada) & (df['Sab'] == 0), :]
+        deleted = df.loc[(df['Inicio_min'] < min_entrada) & (df['Sab']==0), :]
     else:
-        deleted = df.loc[(df['Inicio_min'] < min_entrada),:]
-
-    claves_desechadas = deleted.itertuples()
+        deleted = df.loc[(df['Inicio_min'] < min_entrada) | (df['Sab'] == 1),:]
 
     
+    claves_desechadas = deleted.itertuples()
+    
+    
     for fila in claves_desechadas:
-        #print(str(fila[1]) + " " + str(fila[2]))
         df.drop(df[(df['Clave'] == fila[1]) & (df['Gpo'] == fila[2])].index,inplace=True)
     df = df.reset_index(drop=True)
 
 
 if salida>0:
+    #print("Salida: " + str(salida))
     min_salida = salida*60
     if clases_sabados:
         deleted = df.loc[(df['Fin_min'] > min_salida) & (df['Sab']==0),:]
     else:
-        deleted = df.loc[(df['Fin_min'] > min_salida), :]
+        deleted = df.loc[(df['Fin_min'] > min_salida) | (df['Sab']==1), :]
+
+
+    claves_desechadas = deleted.itertuples()
+    
     for fila in claves_desechadas:
         df.drop(df[(df['Clave'] == fila[1]) & (df['Gpo'] == fila[2])].index,inplace=True)
     df = df.reset_index(drop=True)
-
+    #print(len(df))
 
 #Calcula la duración de cada clase en horas
 duracion = df.Fin_min - df.Inicio_min
 df = df.assign(Duracion = duracion/60)
+
+grupos_per_materia_global = df.groupby('Clave')['Gpo'].size().reset_index(name = 'Cantidad')
+
+
+def actualizarBarra(horario):
+    global combinaciones
+    global grupos_per_materia_global
+
+    #temp = horario.set_index('Gpo', inplace=True)
+
+    #print(str(temp))
+
+    grupos_actuales = horario[~horario.Clave.duplicated(keep='first')]
+
+    #print(str(~horario.index.duplicated(keep='first')))
+          
+    # Convert the 'value' column to a list
+    n = grupos_actuales['Gpo'].tolist()
+    z = grupos_per_materia_global['Cantidad'].tolist()
+
+    #print(str(n))
+    #print(str(z))
+    
+    n.reverse()
+    z.reverse()
+    v = []
+    v_i = 1
+    for i in range(len(z)):
+        v.append(v_i)
+        v_i *= z[i]
+
+    #El id se calcula como una combinación lineal de los grupos totales de las materias y
+    #los del horario creado
+    id=0
+    for i in range(len(n)):
+        if i != 0:
+            id += (n[i]-1)*v[i]
+        else:
+            id += n[i]*v[i]
+
+    #print("ID: " + str(id))
+    porcentaje = (id/combinaciones)*100
+    progress_bar.n = porcentaje 
+    progress_bar.refresh()
+    #print(str(id) + " " + str(porcentaje))
 
 def combinarMaterias(horario,materia_actual):
     """
@@ -236,8 +301,8 @@ def combinarMaterias(horario,materia_actual):
             La materia del renglón del df que se concatena
     
     """
-    # if len(horario.Clave.unique())==len(claves) or materia_actual in horario.Clave:
-    #     return
+    if len(horario.Clave.unique())==len(claves) or materia_actual in horario.Clave:
+        return
     #Obtiene los grupos de la materia actual y los convierte en un arreglo de enteros
     grupos = df.loc[df["Clave"] == materia_actual].Gpo.unique().tolist()
     for grupo_actual in grupos:
@@ -247,8 +312,10 @@ def combinarMaterias(horario,materia_actual):
         if noHayTraslape(horario,new_rows):
             temp = horario
             horario = pd.concat([horario, new_rows])
-            if len(horario.Clave.unique()) == len(claves):
+            if len(horario.Clave.unique()) == len(claves): #Si ya no hay más materias por agregar
                 lista_horarios.append(horario)
+                #print("Horario agregado: " + str(horario))
+                actualizarBarra(horario)
             else:
                 siguiente_mat_ind = claves.index(materia_actual) + 1
                 combinarMaterias(horario,claves[siguiente_mat_ind])
@@ -354,6 +421,7 @@ def imprimirHorarios():
         #print(horario.iloc[:,0:8].drop(['Tipo','Cupo'],axis=1))
         horario.drop(horario.tail(1).index,inplace=True)
         n+=1
+        progress_bar.update(1)
     abrir_carpeta("Horarios_generados")
     
 
@@ -362,11 +430,26 @@ def imprimirHorarios():
 #indices_iniciales = df.loc[df[df]]
 
 #generarHorarios(df)
-if __name__ == '__main__':
-    horario = df.head(0)
-    combinarMaterias(horario,claves[0])
+#if __name__ == '__main__':
+grupos_per_materia = df['Clave'].value_counts().tolist()
+combinaciones = 1
+#print(grupos_per_materia)
+for clave in grupos_per_materia:
+    combinaciones = combinaciones*clave
+
+#print(str(combinaciones))
+
+progress_bar = tqdm(total=100, desc='Generando horarios', unit="%")
+horario = df.head(0)
+combinarMaterias(horario,claves[0])
+progress_bar.n = 100
+progress_bar.refresh()
+progress_bar.close()
+
 print("Horarios generados: " + str(len(lista_horarios)))
+progress_bar = tqdm(total=len(lista_horarios), desc='Creando imágenes', unit="%")
 imprimirHorarios()
+progress_bar.close()
 
 
 
