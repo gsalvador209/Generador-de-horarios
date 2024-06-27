@@ -28,9 +28,9 @@ def gen_df(claves):
     buscar = driver.find_element("id","buscar")
     # Iterar entre todas las claves para ir formando el horario
     #claves = [1687,1858,1959,1052]
-    palabras_excluidas=['Y','E','DE','FUNDAMENTOS','LA','EN','A','AL','INTRODUCCIÓN','SEMINARIO','TALLER','-','SOCIO-HUM.:']
+    palabras_excluidas=['Y','E','SISTEMAS','DE','FUNDAMENTOS','LA','EN','A','AL','INTRODUCCIÓN','SEMINARIO','TALLER','-','SOCIO-HUM.:']
     df = pd.DataFrame()
-    #combinaciones = 1
+    
     for clave in claves:
         campo_clave.clear()
         campo_clave.send_keys(clave)
@@ -38,9 +38,9 @@ def gen_df(claves):
         page_source = driver.page_source
 
         soup = BeautifulSoup(page_source, features="lxml")
-        nombre_soup = soup.find_all('div',{"class":"col-10"})
-        texto_materia = nombre_soup[0].text.split()
-        nombre_filtrado = ' '.join((filter(lambda s: s not in palabras_excluidas, texto_materia)))
+        nombre_materia = soup.find('div',{"class":"col-10"}).text.split()
+
+        nombre_filtrado = ' '.join((filter(lambda s: s not in palabras_excluidas, nombre_materia)))
         
         nombre_filtrado = ''.join([i for i in nombre_filtrado if not i.isdigit()])
         nombre_filtrado = nombre_filtrado[1:]
@@ -52,17 +52,26 @@ def gen_df(claves):
         
         
         tables = soup.find_all('table')
+
+        for table in tables:
+            nombre_tabla = table.find('tbody').find('tr').find('th').text  
+            #print(nombre_tabla)  
+
+            if nombre_tabla == "GRUPOS SIN VACANTES":
+                if len(tables) == 1:
+                    raise Exception("No hay grupos disponibles para la materia " + nombre_filtrado) 
+                else:
+                    continue
+
+            primera_clave = table.find_all('tbody')[1].find('tr').find('td').text
+            if int(primera_clave) > 5000:
+                nombre_filtrado = "L." + nombre_filtrado  
+                #print("Laboratorio")  
+
+            opciones = pd.read_html(StringIO(str(table)))[0]
+            opciones[('AUX','Nombre')] = [nombre_filtrado for _ in range(len(opciones))]
         
-        opciones = pd.read_html(StringIO(str(tables[0])))[0]
-        opciones[('AUX','Nombre')] = [nombre_filtrado for _ in range(len(opciones))]
-        #combinaciones = combinaciones*len(opciones)
-        df = pd.concat([df,opciones],axis=0,ignore_index=True)
-        if len(tables)>1:
-            nombre_filtrado_lab = "L." + nombre_filtrado
-            opciones2 = pd.read_html(StringIO(str(tables[1])))[0]
-            opciones2[('AUX','Nombre')] = [nombre_filtrado_lab for _ in range(len(opciones2))]
-            #combinaciones = combinaciones*len(opciones2)            
-            df = pd.concat([df,opciones2],axis=0,ignore_index=True)
+            df = pd.concat([df,opciones],axis=0,ignore_index=True)
 
     driver.quit()
     df.columns = [col [1] for col in df.columns]
@@ -75,7 +84,7 @@ def llenarNulos(df):
 # Inicio del programa
 
 lista_horarios = list()
-claves_mat = [1867,1858,1959,2928,2958]
+claves_mat = [1052,1867,1858,2948,2957,2928]
 combinaciones = 0
 
 
@@ -83,7 +92,7 @@ combinaciones = 0
 entrada = int(input("Ingresa la hora a la que quieres entrar: ")) #Hora de entrada minima
 salida = int(input("Ingresa la hora a la que quieras salir: ")) #Hora máxima de salida
 clases_sabados = input("¿Quieres clases los sábados? (S/N): ") #Si tienes clases
-if clases_sabados == "S":
+if clases_sabados == "S" or clases_sabados == "s":
     clases_sabados = True
 else:
     clases_sabados = False
@@ -92,6 +101,7 @@ else:
 
 df = gen_df(claves_mat)
 df.to_excel("buffer.xlsx",index=False)
+
 #df = pd.read_excel("Octavo_sem.xlsx")
 
 # df = df.dropna(subset=['Días']).reset_index(drop=True)
@@ -159,9 +169,9 @@ def noHayTraslape(horario_actual,materia):
                    return False
     return True
 
-no_materia = len(df.Clave.unique())
+no_materia = df['Clave'].nunique()
 df = ordenarDataFrame(df)
-claves = df.Clave.unique().tolist()
+claves = df['Clave'].unique().tolist()
 
 #Crea el encabezado de los dummy values de los días (en orden)
 orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'] 
