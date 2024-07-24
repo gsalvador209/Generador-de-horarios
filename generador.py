@@ -17,7 +17,8 @@ from tqdm import tqdm
 #     entre el máximo posible).
 #   - Agregar modo grupos preferidos por materia
  
-
+start_time = time.time()
+claves_mat = [1052,1867,1858,2948,2928,2957]
 def gen_df(claves):
     # Abrir página de la facultad
     url = "https://www.ssa.ingenieria.unam.mx/horarios.html"
@@ -84,14 +85,15 @@ def llenarNulos(df):
 # Inicio del programa
 
 lista_horarios = list()
-claves_mat = [1052,1867,1858,2948,2957,2928]
+#claves_mat = [1052,1867,1858,2948,2957,2928]
+
 combinaciones = 0
 
 
 
-entrada = int(input("Ingresa la hora a la que quieres entrar: ")) #Hora de entrada minima
-salida = int(input("Ingresa la hora a la que quieras salir: ")) #Hora máxima de salida
-clases_sabados = input("¿Quieres clases los sábados? (S/N): ") #Si tienes clases
+entrada = 15#int(input("Ingresa la hora a la que quieres entrar: ")) #Hora de entrada minima
+salida = 22#int(input("Ingresa la hora a la que quieras salir: ")) #Hora máxima de salida
+clases_sabados = "S"#input("¿Quieres clases los sábados? (S/N): ") #Si tienes clases
 if clases_sabados == "S" or clases_sabados == "s":
     clases_sabados = True
 else:
@@ -457,6 +459,7 @@ progress_bar.refresh()
 progress_bar.close()
 
 print("Horarios generados: " + str(len(lista_horarios)))
+print("--- %s seconds ---" % (time.time() - start_time))
 progress_bar = tqdm(total=len(lista_horarios), desc='Creando imágenes', unit="%")
 imprimirHorarios()
 progress_bar.close()
