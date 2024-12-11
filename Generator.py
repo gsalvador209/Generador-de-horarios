@@ -2,21 +2,18 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import subprocess
+import time
 import sys
 import os
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
-import time
 from io import StringIO
-from tqdm import tqdm
 
 # TODO: 
-#   - Globalizar el nombre de la carpeta en las funciones que lo utilizan
-#   - Implementar paletas de colores
-#   - Agregar filtros avanzados: clases los viernes, bloqueos de horas, grupos excluidos
-#   - Agregar barra de progreso basándose en los índices actuales de cada materia (multiplicar los indices relativos y dividir
-#     entre el máximo posible).
+#   - Agregar bloqueo de horas
+#   - Implementación y pruebas en tiempo real
+#   - Agregar barra de progreso para el generador
 #   - Agregar modo grupos preferidos por materia
 
 class FolderManager:
@@ -219,45 +216,7 @@ class Generador:
                     if(self._hayTraslapeHoras(horario_actual.iloc[i],grupo)):
                         return False
         return True
-    
-    # def _actualizarBarra(self,horario):
-
-    #     #temp = horario.set_index('Gpo', inplace=True)
-
-    #     #print(str(temp))
-
-    #     grupos_actuales = horario[~horario.Clave.duplicated(keep='first')]
-
-    #     #print(str(~horario.index.duplicated(keep='first')))
-            
-    #     # Convert the 'value' column to a list
-    #     n = grupos_actuales['Gpo'].tolist()
-    #     z = grupos_per_materia_global['Cantidad'].tolist()
-
-    #     #print(str(n))
-    #     #print(str(z))
-        
-    #     n.reverse()
-    #     z.reverse()
-    #     v = []
-    #     v_i = 1
-    #     for i in range(len(z)):
-    #         v.append(v_i)
-    #         v_i *= z[i]
-
-    #     #El id se calcula como una combinación lineal de los grupos totales de las materias y
-    #     #los del horario creado
-    #     id=0
-    #     for i in range(len(n)):
-    #         if i != 0:
-    #             id += (n[i]-1)*v[i]
-    #         else:
-    #             id += n[i]*v[i]
-
-    #     #print("ID: " + str(id))
-    #     porcentaje = (id/combinaciones)*100
-    #     progress_bar.n = porcentaje 
-    #     progress_bar.refresh()
+  
         
     def _combinarMaterias(self,horario,materia_actual):
         """
@@ -289,33 +248,7 @@ class Generador:
                     siguiente_mat_ind = self.claves.index(materia_actual) + 1
                     self._combinarMaterias(horario,self.claves[siguiente_mat_ind])
                 horario = temp
-                    
-                
-
-
-    # def procesar_datos(args):
-    #     #print("Se está procesando")
-    #     horario, indice, = args
-    #     combinarMaterias(horario, indice)
-
-
-    # def generarHorarios():
-    #         indices =  df.loc[df['Clave']==df.iloc[0]['Clave']].index
-    #         horarios = [None]*len(indices)
-
-    #         pool = Pool(len(indices)) 
-            
-    #         #print("Procesos:" + str(len(indices)))
-
-    #         pool.map(procesar_datos, zip(horarios,indices))
-    #         pool.close()
-    #         pool.join()
-
-    def _includes(self,horario,materia):
-        for i in range(0,len(horario)): #Checa con todas las materias del horario
-            if (materia.Gpo == horario.iloc[i].Gpo and materia.Clave == horario.iloc[i].Clave):
-                return True
-        return False
+    
 
     def _plotMateria(self,df,gnt):
         import random
@@ -380,11 +313,6 @@ class Generador:
             #progress_bar.update(1)
         print(f"Los horarios de {self.materias.nombre_horario} han sido generados.")
         
-
-    #Crea un df vacío con las mismas columnas que el df del excel
-    #horario = pd.DataFrame(columns = df.columns)
-    #indices_iniciales = df.loc[df[df]]
-
 
     def _generate(self,entrada: int = 7, salida: int = 22, clases_sabados: bool = True):
         if self.df != None:
@@ -476,24 +404,11 @@ class Generador:
 
         cantidad_grupos_per_materia = df.groupby('Clave')['Gpo'].size().reset_index(name = 'Cantidad')
 
-    
-        # for clave in cantidad_grupos_per_materia:
-        #     self.combinaciones = self.combinaciones*clave
         self.df = df
-        #print(str(combinaciones))
-        #progress_bar = tqdm(total=100, desc='Generando horarios', unit="%")
         horario = df.head(0)
         self._combinarMaterias(horario,self.claves[0])
         self._imprimirHorarios()
 
-        # progress_bar.n = 100
-        # progress_bar.refresh()
-        # progress_bar.close()
-        # #chechar_disponibilidad(lista_horarios,opciones_atractivas)
-        # print("Horarios generados: " + str(len(self.lista_horarios)))
-        # #print("--- %s seconds ---" % (time.time() - start_time))
-        # progress_bar = tqdm(total=len(self.lista_horarios), desc='Creando imágenes', unit="%")
-        # self.imprimirHorarios()
-        # progress_bar.close()
+
 
 
