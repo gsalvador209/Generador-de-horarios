@@ -26,3 +26,8 @@ Es necesaria la instalación de Python3 y las siguientes bibliotecas:
    - Implementación y pruebas en tiempo real
    - Agregar barra de progreso para el generador
    - Agregar modo grupos preferidos por materia
+
+## Capturas de horario generado
+![Noveno_y_decimo_con_clases_sabado_6](https://github.com/user-attachments/assets/8a9036be-ffed-4432-bf57-7137bea8a704)
+![image](https://github.com/user-attachments/assets/04535870-852a-410f-878f-90a259f6fb5e)
+
