@@ -89,7 +89,7 @@ class Materias:
                 if clave_cache in claves:
                     df = pd.concat([df,cache.loc[cache['Clave'] == clave_cache]],axis=0,ignore_index=True)
                     claves.remove(clave_cache)
-
+            
         if len(claves) != 0:
             buscados = pd.DataFrame()
             # Abrir página de la facultad
@@ -150,9 +150,14 @@ class Materias:
             driver.quit()
             buscados.columns = [col [1] for col in buscados.columns]
             df = pd.concat([df,buscados],axis=0,ignore_index=True)
+        
+        if cache_found:
+            new_cache = pd.merge(df,cache,how='outer')
+            new_cache.to_excel(self.cache_materias, index=False)
+        else:
+            df.to_excel(self.cache_materias, index=False)
+        
         self.claves_mat = list(df['Clave'].unique())
-        new_cache = pd.merge(df,cache,how='outer')
-        new_cache.to_excel(self.cache_materias, index=False) 
         self._df_grupos = df
         print("Información obtenida. Generando horarios...")
 
@@ -160,15 +165,17 @@ class Materias:
 
 class Generador:
 
-    def __init__(self, materias : Materias, df = None):
+    def __init__(self, materias : Materias, df = None, entrada = 7, salida = 22, clases_sabados = True):
         self.materias = materias
         self.claves = materias.claves_mat
         self._lista_horarios = list()
         self.combinaciones = 0
         self.grupos_per_materia = None
         self.df = df
+        self.entrada = entrada
+        self.salida = salida
+        self.clases_sabados = clases_sabados
         self._generate()
-
 
     @property
     def lista_horarios(self):
@@ -302,7 +309,7 @@ class Generador:
     def _imprimirHorarios(self):
         #self.clearCarpeta()
         if len(self._lista_horarios) == 0:
-            print("No se puede generar ningún horario con las materias ingresadas.")
+            print(f"No se puede generar ningún horario en {self.materias.nombre_horario} con las materias ingresadas.")
             return 0
         n=1
         for horario in self.lista_horarios:
@@ -314,7 +321,7 @@ class Generador:
         print(f"Los horarios de {self.materias.nombre_horario} han sido generados.")
         
 
-    def _generate(self,entrada: int = 7, salida: int = 22, clases_sabados: bool = True):
+    def _generate(self):
         if self.df != None:
             horario = df.head(0)
             self._combinarMaterias(horario,self.claves[0])
@@ -367,9 +374,9 @@ class Generador:
         df = df.assign(Fin_min = minutos)
 
 
-        if entrada > 0:
-            min_entrada = entrada*60
-            if clases_sabados:
+        if self.entrada > 0:
+            min_entrada = self.entrada*60
+            if self.clases_sabados:
                 deleted = df.loc[(df['Inicio_min'] < min_entrada) & (df['Sab']==0), :]
             else:
                 deleted = df.loc[(df['Inicio_min'] < min_entrada) | (df['Sab'] == 1),:]
@@ -382,10 +389,10 @@ class Generador:
             df = df.reset_index(drop=True)
 
 
-        if salida>0:
+        if self.salida>0:
             #print("Salida: " + str(salida))
-            min_salida = salida*60
-            if clases_sabados:
+            min_salida = self.salida*60
+            if self.clases_sabados:
                 deleted = df.loc[(df['Fin_min'] > min_salida) & (df['Sab']==0),:]
             else:
                 deleted = df.loc[(df['Fin_min'] > min_salida) | (df['Sab']==1), :]
