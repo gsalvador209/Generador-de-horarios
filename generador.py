@@ -5,6 +5,7 @@ import subprocess
 import sys
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from selenium.webdriver.firefox.options import Options
 import time
 from io import StringIO
 from tqdm import tqdm
@@ -16,13 +17,28 @@ from tqdm import tqdm
 #   - Agregar barra de progreso basándose en los índices actuales de cada materia (multiplicar los indices relativos y dividir
 #     entre el máximo posible).
 #   - Agregar modo grupos preferidos por materia
- 
+
+
+
+
 start_time = time.time()
-claves_mat = [1052,1867,1858,2948,2928,2957]
+claves_mat = [2929,2947,2933,1959]
+
+opciones_atractivas = [45]
+
+def chechar_disponibilidad(horarios : list, opciones: list):
+    for opcion in opciones:
+        print("Opción: ", opcion)
+        #print(horarios[opcion][['Clave','Gpo','Vacantes','Nombre','Profesor']])
+    exit()
+    
+
 def gen_df(claves):
+    options = Options()
+    options.add_argument("--headless")
     # Abrir página de la facultad
     url = "https://www.ssa.ingenieria.unam.mx/horarios.html"
-    driver = webdriver.Firefox()
+    driver = webdriver.Firefox(options=options)
     driver.get("https://www.ssa.ingenieria.unam.mx/horarios.html")
     time.sleep(1)
     campo_clave = driver.find_element("id","clave")
@@ -58,11 +74,11 @@ def gen_df(claves):
             nombre_tabla = table.find('tbody').find('tr').find('th').text  
             #print(nombre_tabla)  
 
-            if nombre_tabla == "GRUPOS SIN VACANTES":
-                if len(tables) == 1:
-                    raise Exception("No hay grupos disponibles para la materia " + nombre_filtrado) 
-                else:
-                    continue
+            # if nombre_tabla == "GRUPOS SIN VACANTES":
+            #     if len(tables) == 1:
+            #         raise Exception("No hay grupos disponibles para la materia " + nombre_filtrado) 
+            #     else:
+            #         continue
 
             primera_clave = table.find_all('tbody')[1].find('tr').find('td').text
             if int(primera_clave) > 5000:
@@ -454,10 +470,11 @@ for clave in grupos_per_materia:
 progress_bar = tqdm(total=100, desc='Generando horarios', unit="%")
 horario = df.head(0)
 combinarMaterias(horario,claves[0])
+
 progress_bar.n = 100
 progress_bar.refresh()
 progress_bar.close()
-
+chechar_disponibilidad(lista_horarios,opciones_atractivas)
 print("Horarios generados: " + str(len(lista_horarios)))
 print("--- %s seconds ---" % (time.time() - start_time))
 progress_bar = tqdm(total=len(lista_horarios), desc='Creando imágenes', unit="%")
