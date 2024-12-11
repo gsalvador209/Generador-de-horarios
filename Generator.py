@@ -4,20 +4,27 @@ import matplotlib.pyplot as plt
 import subprocess
 import time
 import sys
-import os
+import os, shutil
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from io import StringIO
 
 # TODO: 
+#   - Crear el pip freeze
+#   - Corrección de ruta
 #   - Agregar bloqueo de horas
 #   - Implementación y pruebas en tiempo real
 #   - Agregar barra de progreso para el generador
 #   - Agregar modo grupos preferidos por materia
 
 class FolderManager:
+    #Se obtiene la carpeta actual
+    def __init__(self):
+        self.current_folder = os.getcwd()
+        
     def abrir_carpeta(self,ruta="Horarios_generados"):
+        ruta = os.path.join(self.current_folder,ruta) 
         if sys.platform == "win32":
             subprocess.Popen(f'explorer "{ruta}"')
         elif sys.platform == "darwin":
@@ -30,8 +37,7 @@ class FolderManager:
             print("No se pudo abrir la carpeta")  
 
     def clear_carpeta(self):
-        import os, shutil
-        folder = "Horarios_generados"
+        folder = os.path.join(self.current_folder,"Horarios_generados")
         os.makedirs(folder, exist_ok=True)
         for filename in os.listdir(folder):
             file_path = os.path.join(folder, filename)
@@ -50,7 +56,7 @@ class Materias:
     """
     cache_materias = "cache_materias.xlsx"
 
-    def __init__(self, claves_mat: list, nombre_horario : str = "Horarios_generados",df_grupos = None, real_time = False, silence = True):
+    def __init__(self, claves_mat: list, nombre_horario : str = "Opciones",df_grupos = None, real_time = False, silence = True):
         self.nombre_horario = nombre_horario
         self.claves_mat = claves_mat
         self._df_grupos = df_grupos
@@ -300,9 +306,8 @@ class Generador:
 
         for i in range(0,len(horario)):
             self._plotMateria(horario.iloc[i],gnt)
-
-        os.makedirs("Horarios_generados", exist_ok=True)
-        plt.savefig("Horarios_generados" + "/" + self.materias.nombre_horario + str(numero) + ".jpg",dpi = 250)
+        ruta = os.path.join(os.getcwd(),"Horarios_generados")
+        plt.savefig(ruta + "/" + self.materias.nombre_horario + "_" +str(numero) + ".jpg",dpi = 250)
         plt.close()
 
 
