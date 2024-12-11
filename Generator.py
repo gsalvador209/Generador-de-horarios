@@ -75,6 +75,7 @@ class Materias:
 
         df = pd.DataFrame()
         claves = self.claves_mat
+        claves_to_remove = []
         url = "https://www.ssa.ingenieria.unam.mx/horarios.html"
         palabras_excluidas=['Y','E','SISTEMAS','DE','FUNDAMENTOS','LA','EN','A','AL','INTRODUCCIÓN','SEMINARIO','TALLER','-','SOCIO-HUM.:']
         cache_found = False
@@ -118,41 +119,45 @@ class Materias:
                 campo_clave.send_keys(clave)
                 buscar.click()
                 page_source = driver.page_source
-
                 soup = BeautifulSoup(page_source, features="lxml")
-                nombre_materia = soup.find('div',{"class":"col-10"}).text.split()
+                try:
+                    nombre_materia = soup.find('div',{"class":"col-10"}).text.split()
 
-                nombre_filtrado = ' '.join((filter(lambda s: s not in palabras_excluidas, nombre_materia)))
-                
-                nombre_filtrado = ''.join([i for i in nombre_filtrado if not i.isdigit()])
-                nombre_filtrado = nombre_filtrado[1:]
-                if (":" in nombre_filtrado):
-                    nombre_filtrado = nombre_filtrado.split(':')
+                    nombre_filtrado = ' '.join((filter(lambda s: s not in palabras_excluidas, nombre_materia)))
+                    
+                    nombre_filtrado = ''.join([i for i in nombre_filtrado if not i.isdigit()])
                     nombre_filtrado = nombre_filtrado[1:]
-                    nombre_filtrado = ' '.join(nombre_filtrado)
-            
-                tables = soup.find_all('table')
+                    if (":" in nombre_filtrado):
+                        nombre_filtrado = nombre_filtrado.split(':')
+                        nombre_filtrado = nombre_filtrado[1:]
+                        nombre_filtrado = ' '.join(nombre_filtrado)
+                
+                    tables = soup.find_all('table')
 
-                for table in tables:
-                    nombre_tabla = table.find('tbody').find('tr').find('th').text  
-                    #print(nombre_tabla)  
+                    for table in tables:
+                        nombre_tabla = table.find('tbody').find('tr').find('th').text  
+                        #print(nombre_tabla)  
 
-                    if nombre_tabla == "GRUPOS SIN VACANTES":
-                        if len(tables) == 1:
-                            if(self.real_time):
-                                raise Exception("Ya no hay grupos disponibles para la materia " + nombre_filtrado + ". Intenta con otras claves.") 
-                            #print("No hay grupos disponibles para la materia " + nombre_filtrado)
-                        else:
-                            continue
+                        if nombre_tabla == "GRUPOS SIN VACANTES":
+                            if len(tables) == 1:
+                                if(self.real_time):
+                                    raise Exception("Ya no hay grupos disponibles para la materia " + nombre_filtrado + ". Intenta con otras claves.") 
+                                #print("No hay grupos disponibles para la materia " + nombre_filtrado)
+                            else:
+                                continue
 
-                    primera_clave = table.find_all('tbody')[1].find('tr').find('td').text
-                    if int(primera_clave) > 5000:
-                        nombre_filtrado = "L." + nombre_filtrado  
-                        #print("Laboratorio")  
+                        primera_clave = table.find_all('tbody')[1].find('tr').find('td').text
+                        if int(primera_clave) > 5000:
+                            nombre_filtrado = "L." + nombre_filtrado  
+                            #print("Laboratorio")  
 
-                    opciones = pd.read_html(StringIO(str(table)))[0]
-                    opciones[('AUX','Nombre')] = [nombre_filtrado for _ in range(len(opciones))]
-                    buscados = pd.concat([buscados,opciones],axis=0,ignore_index=True)
+                        opciones = pd.read_html(StringIO(str(table)))[0]
+                        opciones[('AUX','Nombre')] = [nombre_filtrado for _ in range(len(opciones))]
+                        buscados = pd.concat([buscados,opciones],axis=0,ignore_index=True)
+                except AttributeError:
+                    print(f"No fue posible encontrar algúna asignatura con clave {clave}. Se ignorará esta clave.")
+                    claves_to_remove.append(clave) #Aun no se usa
+
             driver.quit()
             buscados.columns = [col [1] for col in buscados.columns]
             df = pd.concat([df,buscados],axis=0,ignore_index=True)
@@ -313,9 +318,12 @@ class Generador:
 
     def _imprimirHorarios(self):
         #self.clearCarpeta()
+        print(f"Los horarios de {self.materias.nombre_horario} han sido creados, se están guardando en la carpeta Horarios_generados")
         if len(self._lista_horarios) == 0:
             print(f"No se puede generar ningún horario en {self.materias.nombre_horario} con las materias ingresadas.")
             return 0
+        else:
+            print(f"Se generaron {len(self._lista_horarios)} horarios.")
         n=1
         for horario in self.lista_horarios:
             self._plotHorario(horario,n)

@@ -4,7 +4,7 @@ REM Define the name of the virtual environment directory
 set VENV_DIR=venv
 
 REM Define the name of the Python script to run
-set SCRIPT_NAME=generar_horarios.py
+set SCRIPT_NAME=demo.py
 
 REM Check if the virtual environment exists
 if not exist %VENV_DIR% (
