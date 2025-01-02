@@ -21,6 +21,13 @@ def on_drag(event):
                 (col + 1) * CELL_WIDTH, (row + 1) * CELL_HEIGHT,
                 fill="lightblue", outline="gray"
             )
+        else:
+            selected_blocks[days[col]].remove(hours[row])
+            canvas.create_rectangle(
+                col * CELL_WIDTH, row * CELL_HEIGHT,
+                (col + 1) * CELL_WIDTH, (row + 1) * CELL_HEIGHT,
+                fill="white", outline="gray"
+            )
 
 def reset_schedule():
     canvas.delete("all")
@@ -40,20 +47,20 @@ CELL_HEIGHT = 30
 WIDTH = 700
 HEIGHT = 600
 
-days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-hours = [f"{h}:00" for h in range(7, 22)]
+days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
+hours = [f"{h}:00" for h in range(6, 22)]
 
 # Estructura para guardar los bloques seleccionados
 selected_blocks = {day: [] for day in days}
 
 # Crear ventana principal
 root = tk.Tk()
-root.title("Gestión de Horarios")
+root.title("Horas disponibles")
 
 # Crear Canvas
 canvas = tk.Canvas(root, width=WIDTH, height=HEIGHT, bg="white")
 canvas.pack()
-canvas.bind("<B1-Motion>", on_drag)
+canvas.bind("<1>", on_drag)
 
 # Dibujar cuadrícula inicial
 draw_grid()
@@ -63,9 +70,9 @@ button_frame = tk.Frame(root)
 button_frame.pack()
 
 save_button = tk.Button(button_frame, text="Guardar Horario", command=save_schedule)
-save_button.pack(side="left", padx=10, pady=10)
+save_button.pack(side="left", padx=10, pady=50)
 
 reset_button = tk.Button(button_frame, text="Reiniciar", command=reset_schedule)
-reset_button.pack(side="left", padx=10, pady=10)
+reset_button.pack(side="left", padx=10, pady=50)
 
 root.mainloop()
