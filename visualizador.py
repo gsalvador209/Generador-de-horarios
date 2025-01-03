@@ -1,7 +1,3 @@
-"""
-Implementación para crear un blocking inicial antes de generar los horarios
-"""
-
 import tkinter as tk
 
 def save_schedule():
@@ -10,22 +6,22 @@ def save_schedule():
         print(f"{key}: {sorted(value)}")
 
 def on_drag(event):
-    col = event.x // CELL_WIDTH
-    row = event.y // CELL_HEIGHT
+    col = (event.x - OFFSET_X) // CELL_WIDTH
+    row = (event.y - OFFSET_Y) // CELL_HEIGHT
     if 0 <= row < len(hours) and 0 <= col < len(days):
         block = (days[col], hours[row])
         if block not in selected_blocks[days[col]]:
             selected_blocks[days[col]].append(hours[row])
             canvas.create_rectangle(
-                col * CELL_WIDTH, row * CELL_HEIGHT,
-                (col + 1) * CELL_WIDTH, (row + 1) * CELL_HEIGHT,
+                col * CELL_WIDTH + OFFSET_X, row * CELL_HEIGHT + OFFSET_Y,
+                (col + 1) * CELL_WIDTH + OFFSET_X, (row + 1) * CELL_HEIGHT + OFFSET_Y,
                 fill="lightblue", outline="gray"
             )
         else:
             selected_blocks[days[col]].remove(hours[row])
             canvas.create_rectangle(
-                col * CELL_WIDTH, row * CELL_HEIGHT,
-                (col + 1) * CELL_WIDTH, (row + 1) * CELL_HEIGHT,
+                col * CELL_WIDTH + OFFSET_X, row * CELL_HEIGHT + OFFSET_Y,
+                (col + 1) * CELL_WIDTH + OFFSET_X, (row + 1) * CELL_HEIGHT + OFFSET_Y,
                 fill="white", outline="gray"
             )
 
@@ -36,31 +32,51 @@ def reset_schedule():
         selected_blocks[day] = []
 
 def draw_grid():
+    # Dibujar encabezados de días
+    for i, day in enumerate(days):
+        x0 = i * CELL_WIDTH + OFFSET_X
+        x1 = (i + 1) * CELL_WIDTH + OFFSET_X
+        canvas.create_rectangle(x0, 0, x1, OFFSET_Y, fill="lightgray", outline="black")
+        canvas.create_text((x0 + x1) // 2, OFFSET_Y // 2, text=day, font=("Arial", 10))
+
+    # Dibujar encabezados de horas
+    for i, hour in enumerate(hours):
+        y0 = i * CELL_HEIGHT + OFFSET_Y
+        y1 = (i + 1) * CELL_HEIGHT + OFFSET_Y
+        canvas.create_rectangle(0, y0, OFFSET_X, y1, fill="lightgray", outline="black")
+        canvas.create_text(OFFSET_X // 2, (y0 + y1) // 2, text=hour, font=("Arial", 10))
+
+    # Dibujar líneas de cuadrícula
     for i in range(len(days) + 1):
-        canvas.create_line(i * CELL_WIDTH, 0, i * CELL_WIDTH, HEIGHT, fill="gray")
+        x = i * CELL_WIDTH + OFFSET_X
+        canvas.create_line(x, OFFSET_Y, x, HEIGHT, fill="gray")
     for i in range(len(hours) + 1):
-        canvas.create_line(0, i * CELL_HEIGHT, WIDTH, i * CELL_HEIGHT, fill="gray")
+        y = i * CELL_HEIGHT + OFFSET_Y
+        canvas.create_line(OFFSET_X, y, WIDTH, y, fill="gray")
 
 # Dimensiones y datos iniciales
 CELL_WIDTH = 100
 CELL_HEIGHT = 30
-WIDTH = 700
-HEIGHT = 600
+OFFSET_X = 60
+OFFSET_Y = 30
+WIDTH = 600 + OFFSET_X
+HEIGHT = 450 + OFFSET_Y
 
 days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
-hours = [f"{h}:00" for h in range(6, 22)]
+hours = [f"{h}:00" for h in range(7, 22)] + [f"{h}:30" for h in range(7, 22)]
+hours = sorted(hours, key=lambda t: (int(t.split(":")[0]), int(t.split(":")[1])))
 
 # Estructura para guardar los bloques seleccionados
 selected_blocks = {day: [] for day in days}
 
 # Crear ventana principal
 root = tk.Tk()
-root.title("Horas disponibles")
+root.title("Gestión de Horarios")
 
 # Crear Canvas
 canvas = tk.Canvas(root, width=WIDTH, height=HEIGHT, bg="white")
 canvas.pack()
-canvas.bind("<1>", on_drag)
+canvas.bind("<B1-Motion>", on_drag)
 
 # Dibujar cuadrícula inicial
 draw_grid()
@@ -70,9 +86,9 @@ button_frame = tk.Frame(root)
 button_frame.pack()
 
 save_button = tk.Button(button_frame, text="Guardar Horario", command=save_schedule)
-save_button.pack(side="left", padx=10, pady=50)
+save_button.pack(side="left", padx=10, pady=10)
 
 reset_button = tk.Button(button_frame, text="Reiniciar", command=reset_schedule)
-reset_button.pack(side="left", padx=10, pady=50)
+reset_button.pack(side="left", padx=10, pady=10)
 
 root.mainloop()
