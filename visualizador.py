@@ -5,25 +5,32 @@ def save_schedule():
     for key, value in selected_blocks.items():
         print(f"{key}: {sorted(value)}")
 
-def on_drag(event):
+def on_drag(event,state):
+    #clicked[0] = False
     col = (event.x - OFFSET_X) // CELL_WIDTH
     row = (event.y - OFFSET_Y) // CELL_HEIGHT
     if 0 <= row < len(hours) and 0 <= col < len(days):
         block = (days[col], hours[row])
-        if block not in selected_blocks[days[col]]:
-            selected_blocks[days[col]].append(hours[row])
-            canvas.create_rectangle(
-                col * CELL_WIDTH + OFFSET_X, row * CELL_HEIGHT + OFFSET_Y,
-                (col + 1) * CELL_WIDTH + OFFSET_X, (row + 1) * CELL_HEIGHT + OFFSET_Y,
-                fill="lightblue", outline="gray"
-            )
+        if ((block[1] not in selected_blocks[days[col]])):
+            if state[0] == 'drawing' or state[0] == 'waiting':
+                state[0] = 'drawing'
+                selected_blocks[days[col]].append(hours[row])
+                canvas.create_rectangle(
+                    col * CELL_WIDTH + OFFSET_X, row * CELL_HEIGHT + OFFSET_Y,
+                    (col + 1) * CELL_WIDTH + OFFSET_X, (row + 1) * CELL_HEIGHT + OFFSET_Y,
+                    fill="lightblue", outline="gray"
+                )
         else:
-            selected_blocks[days[col]].remove(hours[row])
-            canvas.create_rectangle(
-                col * CELL_WIDTH + OFFSET_X, row * CELL_HEIGHT + OFFSET_Y,
-                (col + 1) * CELL_WIDTH + OFFSET_X, (row + 1) * CELL_HEIGHT + OFFSET_Y,
-                fill="white", outline="gray"
-            )
+            if state[0] == 'erasing' or state[0] == 'waiting':
+                state[0] = 'erasing'
+                selected_blocks[days[col]].remove(hours[row])
+                canvas.create_rectangle(
+                    col * CELL_WIDTH + OFFSET_X, row * CELL_HEIGHT + OFFSET_Y,
+                    (col + 1) * CELL_WIDTH + OFFSET_X, (row + 1) * CELL_HEIGHT + OFFSET_Y,
+                    fill="white", outline="gray"
+                )
+
+
 
 def reset_schedule():
     canvas.delete("all")
@@ -54,6 +61,10 @@ def draw_grid():
         y = i * CELL_HEIGHT + OFFSET_Y
         canvas.create_line(OFFSET_X, y, WIDTH, y, fill="gray")
 
+def released_togle(event,state):
+    if state[0] != 'waiting':
+        state[0] = 'waiting'
+
 # Dimensiones y datos iniciales
 CELL_WIDTH = 100
 CELL_HEIGHT = 30
@@ -61,6 +72,8 @@ OFFSET_X = 60
 OFFSET_Y = 30
 WIDTH = 600 + OFFSET_X
 HEIGHT = 450 + OFFSET_Y
+
+state = ['waiting']
 
 days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
 hours = [f"{h}:00" for h in range(7, 22)] + [f"{h}:30" for h in range(7, 22)]
@@ -71,13 +84,13 @@ selected_blocks = {day: [] for day in days}
 
 # Crear ventana principal
 root = tk.Tk()
-root.title("Gestión de Horarios")
+root.title("Generador de Horarios")
 
 # Crear Canvas
 canvas = tk.Canvas(root, width=WIDTH, height=HEIGHT, bg="white")
 canvas.pack()
-canvas.bind("<B1-Motion>", on_drag)
-
+canvas.bind("<B1-Motion>", lambda event : on_drag(event,state))
+canvas.bind("<ButtonRelease-1>",lambda event : released_togle(event,state))
 # Dibujar cuadrícula inicial
 draw_grid()
 
@@ -85,10 +98,11 @@ draw_grid()
 button_frame = tk.Frame(root)
 button_frame.pack()
 
+reset_button = tk.Button(button_frame, text="Limpiar hoja", command=reset_schedule)
+reset_button.pack(side="left", padx=10, pady=10)
+
 save_button = tk.Button(button_frame, text="Guardar Horario", command=save_schedule)
 save_button.pack(side="left", padx=10, pady=10)
 
-reset_button = tk.Button(button_frame, text="Reiniciar", command=reset_schedule)
-reset_button.pack(side="left", padx=10, pady=10)
 
 root.mainloop()
