@@ -8,8 +8,6 @@ from datetime import datetime
 def check_compatibility(A,B):
     return not (A & B).any()
 
-
-
 def create_matrix(dias_str, horas_str):
     """
     A partir de un horario con formato "Lun, Vie" y "07:00 a 09:00" crea una matriz de bits
@@ -54,16 +52,11 @@ for row in df.itertuples():
     print(create_matrix(row.Días, row.Horario))
     #break
 
-def save_schedule():
-    """
-    Obtiene un dataframe que contiene los horarios seleccionados
-    """
-    print("Horario seleccionado:")
-    
-
-    for key, value in selected_blocks.items():
-        print(f"{key}: {sorted(value)}")
-
+# def save_schedule():
+#     """
+#     Crea una matriz de bits que representa los bloques seleccionados y la guarda en un archivo.
+#     """
+  
 def on_drag(event,state):
     #clicked[0] = False
     col = (event.x - OFFSET_X) // CELL_WIDTH
