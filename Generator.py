@@ -218,16 +218,14 @@ class Materias:
 
 class Generador:
 
-    def __init__(self, materias : Materias, df = None, entrada = 7, salida = 22, clases_sabados = True):
+    def __init__(self, materias : Materias, df = None, indisponibilidad = bitarray(30*6)):
         self.materias = materias
         self.claves = materias.claves_mat
         self._lista_horarios = list()
         self.combinaciones = 0
         self.grupos_per_materia = None
         self.df = df
-        self.entrada = entrada
-        self.salida = salida
-        self.clases_sabados = clases_sabados
+        self.indisp = indisponibilidad
         self._generate()
 
     @property
@@ -404,88 +402,94 @@ class Generador:
         
         df = self.materias.df_grupos
         df = self._ordenarDataFrame(df)
+        
+        # #Crea el encabezado de los dummy values de los días (en orden)
+        # orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'] 
 
-        #Crea el encabezado de los dummy values de los días (en orden)
-        orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'] 
+        # #Obtiene los dummy values directo del df
+        # dummy_dias = pd.Series(df.Días).str.get_dummies(sep=', ')
 
-        #Obtiene los dummy values directo del df
-        dummy_dias = pd.Series(df.Días).str.get_dummies(sep=', ')
+        # # Reordena y añade los valores de las variables ficticias a la serie "dias" y cambia los NaN por 0
+        # dummy_dias = dummy_dias.reindex(orden, axis=1).infer_objects(copy=False)
 
-        # Reordena y añade los valores de las variables ficticias a la serie "dias" y cambia los NaN por 0
-        dummy_dias = dummy_dias.reindex(orden, axis=1).infer_objects(copy=False)
+        # #Añade este nuevo df al df original
+        # df = df.assign(**dummy_dias)
 
-        #Añade este nuevo df al df original
-        df = df.assign(**dummy_dias)
+        # # # Get dummies de las horas
 
-        # # Get dummies de las horas
+        # #Crea una series de las horas que se imparte esa materia
+        # horas_sep = df.Horario.str.split(" a ")
 
-        #Crea una series de las horas que se imparte esa materia
-        horas_sep = df.Horario.str.split(" a ")
+        # #Crea un diccionario con la series anterior, la clave es el índice de la serie y el valor la tupla de horas
+        # diccionario = dict(zip(horas_sep.index, horas_sep.values))
 
-        #Crea un diccionario con la series anterior, la clave es el índice de la serie y el valor la tupla de horas
-        diccionario = dict(zip(horas_sep.index, horas_sep.values))
+        # #A partir de este diccionario, crea un dataframe llamado horas y nombra sus columnas
+        # horas = pd.DataFrame.from_dict(diccionario).transpose()
+        # horas.columns = ['Inicio','Fin']
 
-        #A partir de este diccionario, crea un dataframe llamado horas y nombra sus columnas
-        horas = pd.DataFrame.from_dict(diccionario).transpose()
-        horas.columns = ['Inicio','Fin']
+        # #Une las horas al dataframe original
+        # df = df.assign(**horas)
 
-        #Une las horas al dataframe original
-        df = df.assign(**horas)
+        # #Genera una series que contiene las horas y los minutos como tupla
+        # hrs_y_min = df.Inicio.str.split(":")
 
-        #Genera una series que contiene las horas y los minutos como tupla
-        hrs_y_min = df.Inicio.str.split(":")
+        # #Obtiene la hora de inicio en terminos de minutos y crea una nueva columna en el df
+        # minutos = hrs_y_min.str[0].astype(int)*60 +  hrs_y_min.str[1].astype(int)
 
-        #Obtiene la hora de inicio en terminos de minutos y crea una nueva columna en el df
-        minutos = hrs_y_min.str[0].astype(int)*60 +  hrs_y_min.str[1].astype(int)
+        # #Une la variable minutos como inicio
+        # df = df.assign(Inicio_min = minutos)
 
-        #Une la variable minutos como inicio
-        df = df.assign(Inicio_min = minutos)
+        # #obtiene la hora final en terminos de minutos y crea una nueva columna en el df
+        # hrs_y_min = df.Fin.str.split(":")
+        # minutos = hrs_y_min.str[0].astype(int)*60 +  hrs_y_min.str[1].astype(int)
 
-        #obtiene la hora final en terminos de minutos y crea una nueva columna en el df
-        hrs_y_min = df.Fin.str.split(":")
-        minutos = hrs_y_min.str[0].astype(int)*60 +  hrs_y_min.str[1].astype(int)
-
-        #Une la variable miniutos como fin
-        df = df.assign(Fin_min = minutos)
+        # #Une la variable miniutos como fin
+        # df = df.assign(Fin_min = minutos)
 
 
-        if self.entrada > 0:
-            min_entrada = self.entrada*60
-            if self.clases_sabados:
-                deleted = df.loc[(df['Inicio_min'] < min_entrada) & (df['Sab']==0), :]
-            else:
-                deleted = df.loc[(df['Inicio_min'] < min_entrada) | (df['Sab'] == 1),:]
+        # if self.entrada > 0:
+        #     min_entrada = self.entrada*60
+        #     if self.clases_sabados:
+        #         deleted = df.loc[(df['Inicio_min'] < min_entrada) & (df['Sab']==0), :]
+        #     else:
+        #         deleted = df.loc[(df['Inicio_min'] < min_entrada) | (df['Sab'] == 1),:]
 
-            claves_desechadas = deleted.itertuples()
+        #     claves_desechadas = deleted.itertuples()
             
             
-            for fila in claves_desechadas:
-                df.drop(df[(df['Clave'] == fila[1]) & (df['Gpo'] == fila[2])].index,inplace=True)
-            df = df.reset_index(drop=True)
+        #     for fila in claves_desechadas:
+        #         df.drop(df[(df['Clave'] == fila[1]) & (df['Gpo'] == fila[2])].index,inplace=True)
+        #     df = df.reset_index(drop=True)
 
 
-        if self.salida>0:
-            #print("Salida: " + str(salida))
-            min_salida = self.salida*60
-            if self.clases_sabados:
-                deleted = df.loc[(df['Fin_min'] > min_salida) & (df['Sab']==0),:]
-            else:
-                deleted = df.loc[(df['Fin_min'] > min_salida) | (df['Sab']==1), :]
+        # if self.salida>0:
+        #     #print("Salida: " + str(salida))
+        #     min_salida = self.salida*60
+        #     if self.clases_sabados:
+        #         deleted = df.loc[(df['Fin_min'] > min_salida) & (df['Sab']==0),:]
+        #     else:
+        #         deleted = df.loc[(df['Fin_min'] > min_salida) | (df['Sab']==1), :]
 
 
-            claves_desechadas = deleted.itertuples()
+        #     claves_desechadas = deleted.itertuples()
             
-            for fila in claves_desechadas:
-                df.drop(df[(df['Clave'] == fila[1]) & (df['Gpo'] == fila[2])].index,inplace=True)
-            df = df.reset_index(drop=True)
-            #print(len(df))
+        #     for fila in claves_desechadas:
+        #         df.drop(df[(df['Clave'] == fila[1]) & (df['Gpo'] == fila[2])].index,inplace=True)
+        #     df = df.reset_index(drop=True)
+        #     #print(len(df))
 
-        #Calcula la duración de cada clase en horas
-        duracion = df.Fin_min - df.Inicio_min
-        df = df.assign(Duracion = duracion/60)
+        # #Calcula la duración de cada clase en horas
+        # duracion = df.Fin_min - df.Inicio_min
+        # df = df.assign(Duracion = duracion/60)
 
-        cantidad_grupos_per_materia = df.groupby('Clave')['Gpo'].size().reset_index(name = 'Cantidad')
 
+
+
+        df.to_excel("Test_after.xlsx")
+        df = df[df.apply(lambda row: self._compatibilidad(self.indisp,row.Binary), axis=1)]
+        df = df.reset_index(drop=True)  
+        df.to_excel("Test_before.xlsx")
+        exit()
         self.df = df
         horario = df.head(0)
         self._combinarMaterias(horario,self.claves[0])
