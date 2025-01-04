@@ -1,7 +1,12 @@
 import tkinter as tk
 
 def save_schedule():
+    """
+    Obtiene un dataframe que contiene los horarios seleccionados
+    """
     print("Horario seleccionado:")
+    
+
     for key, value in selected_blocks.items():
         print(f"{key}: {sorted(value)}")
 
