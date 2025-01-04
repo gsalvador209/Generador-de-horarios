@@ -69,6 +69,44 @@ class Materias:
     def df_grupos(self):
         return self._df_grupos  
 
+    def _crear_matriz(self,dias_str, horas_str):
+        """
+        A partir de un horario con formato "Lun, Vie" y "07:00 a 09:00" crea una matriz de bits
+        que representa la indisponibilidad en agenda.
+        
+        ### Parámetros
+        - dias_str: str, días de la semana en formato "Dia, Dia"
+        - horas_str: str, horas en formato "HH:MM a HH:MM"
+
+        ### Retorno
+        - bit_matrix: bitarray, matriz de bits que representa la disponibilidad en agenda
+        """
+        orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'] 
+        time_format = "%H:%M"   
+
+        #Extrae los días que esan en formato "Lun, Vie"
+        dias_list = dias_str.split(", ")
+        dias = ['1' if dia in dias_list else '0' for dia in orden]
+        dias = np.array(dias, dtype=int).reshape(1, 6)
+
+        #Extrae las horas que estan en formato "07:00 a 09:00"
+        horas_sep = horas_str.split(" a ")
+        hora_inicio = datetime.strptime(horas_sep[0], time_format)
+        hora_fin = datetime.strptime(horas_sep[1], time_format)
+        duration = (hora_fin-hora_inicio).total_seconds()/(60*30) # Obtener la duración en bloques de 30 minutos
+        duration = '1'*int(duration) # Crea los bits que indican duración
+        inicio_h = hora_inicio.hour - 7   
+        inicio_m = hora_inicio.minute//30
+        horas = '0'*(inicio_h*2+inicio_m) + duration
+        horas = horas.ljust(30,'0')
+        horas = np.array(list(horas), dtype=int).reshape(30,1)
+    
+        # Creación de la matriz
+        matriz = np.logical_and(horas, dias)
+        flatten = matriz.flatten()
+        bit_matrix = bitarray(flatten.tolist()) 
+        return bit_matrix
+
     def _gen_df(self, headless = True):
         """
         Genera el DataFrame con la información de las materias que se van a considerar para la generación de horarios.
@@ -170,6 +208,9 @@ class Materias:
             df.to_excel(self.cache_materias, index=False)
         
         self.claves_mat = list(df['Clave'].unique())
+
+        df['Binary'] = df.apply(lambda row: self._crear_matriz(row['Días'], row['Horario']), axis=1)
+
         self._df_grupos = df
         print("Información obtenida. Generando horarios...")
 
@@ -200,41 +241,56 @@ class Generador:
         df_ordenado = df_ordenado.reset_index(drop=True)
         return df_ordenado
  
+    
 
-    #Verificación por horario
-    def _hayTraslapeHoras(self,a,b): #DataFrame, comparativa a comparativa b
-        if b.Inicio_min - a.Inicio_min == 0: #empiezan a la misma hora
-            return True
-        if b.Inicio_min - a.Inicio_min > 0: #b empieza después que a
-            if(b.Inicio_min - a.Inicio_min < a.Duracion*60):
-                return True
-        else:
-            if(abs(b.Inicio_min - a.Inicio_min) < b.Duracion*60):
-                return True 
-        return False
+    # #Verificación por horario
+    # def _hayTraslapeHoras(self,a,b): #DataFrame, comparativa a comparativa b
+    #     if b.Inicio_min - a.Inicio_min == 0: #empiezan a la misma hora
+    #         return True
+    #     if b.Inicio_min - a.Inicio_min > 0: #b empieza después que a
+    #         if(b.Inicio_min - a.Inicio_min < a.Duracion*60):
+    #             return True
+    #     else:
+    #         if(abs(b.Inicio_min - a.Inicio_min) < b.Duracion*60):
+    #             return True 
+    #     return False
         
 
-    def _noHayTraslapeDias(self,horario_actual,materia):    
-        """
-        Verifica si existe un Traslape entre un potencial horario_actual y una materia (renglón del dataframe)
+    def _noTraslape(self,horario_armandose,rows_materia):
+        horario_bin = bitarray(30*6)
+        horario_bin.setall(0)
+        materia_bin = bitarray(30*6)
+        materia_bin.setall(0)
 
-        Parameters
-        ----------
-            horario_actual: dataFrame
-                Es el horario_actual que se va armando
-            materia: series
-                Es la fila que contiene toda la info de la materia que se quiere meter
-        """
-        orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab']
-        for i in range(len(horario_actual)):
-            for j in range(len(materia)):
-                grupo = materia.iloc[j]
-                prod = horario_actual.iloc[i].loc[orden] * grupo.loc[orden]
-                #Ejecuta la funcion all para ver si todos los elementos son cero
-                if(not (prod == 0).all()):
-                    if(self._hayTraslapeHoras(horario_actual.iloc[i],grupo)):
-                        return False
-        return True
+        for row in horario_armandose.itertuples():
+            horario_bin = horario_bin | row.Binary
+
+        for row in rows_materia.itertuples():
+            materia_bin = materia_bin | row.Binary
+
+        return not (horario_bin & materia_bin).any()
+
+    # def _noHayTraslapeDias(self,horario_actual,materia):    
+    #     """
+    #     Verifica si existe un Traslape entre un potencial horario_actual y una materia (renglón del dataframe)
+
+    #     Parameters
+    #     ----------
+    #         horario_actual: dataFrame
+    #             Es el horario_actual que se va armando
+    #         materia: series
+    #             Es la fila que contiene toda la info de la materia que se quiere meter
+    #     """
+    #     orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab']
+    #     for i in range(len(horario_actual)):
+    #         for j in range(len(materia)):
+    #             grupo = materia.iloc[j]
+    #             prod = horario_actual.iloc[i].loc[orden] * grupo.loc[orden]
+    #             #Ejecuta la funcion all para ver si todos los elementos son cero
+    #             if(not (prod == 0).all()):
+    #                 if(self._hayTraslapeHoras(horario_actual.iloc[i],grupo)):
+    #                     return False
+    #     return True
   
         
     def _combinarMaterias(self,horario,materia_actual):
@@ -255,8 +311,9 @@ class Generador:
         for grupo_actual in grupos:
             #Obtiene un df que contiene todas las filas de un grupo
             new_rows = self.df.loc[(self.df["Clave"]==materia_actual) & (self.df["Gpo"]==grupo_actual)]
+
             #Esta row puede ser multiple dado que algunos grupos se descomponen así
-            if self._noHayTraslapeDias(horario,new_rows):
+            if self._noTraslape(horario,new_rows):
                 temp = horario
                 horario = pd.concat([horario, new_rows])
                 if len(horario.Clave.unique()) == len(self.claves): #Si ya no hay más materias por agregar
@@ -334,46 +391,9 @@ class Generador:
             #progress_bar.update(1)
         print(f"Los horarios de {self.materias.nombre_horario} han sido generados.")
         
-    def _checar_compatibilidad(self,A,B):
+    def _compatibilidad(self,A,B):
         return not (A & B).any()
-
-    def _crear_matriz(self,dias_str, horas_str):
-        """
-        A partir de un horario con formato "Lun, Vie" y "07:00 a 09:00" crea una matriz de bits
-        que representa la indisponibilidad en agenda.
-        
-        ### Parámetros
-        - dias_str: str, días de la semana en formato "Dia, Dia"
-        - horas_str: str, horas en formato "HH:MM a HH:MM"
-
-        ### Retorno
-        - bit_matrix: bitarray, matriz de bits que representa la disponibilidad en agenda
-        """
-        orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'] 
-        time_format = "%H:%M"   
-
-        #Extrae los días que esan en formato "Lun, Vie"
-        dias_list = dias_str.split(", ")
-        dias = ['1' if dia in dias_list else '0' for dia in orden]
-        dias = np.array(dias, dtype=int).reshape(1, 6)
-
-        #Extrae las horas que estan en formato "07:00 a 09:00"
-        horas_sep = horas_str.split(" a ")
-        hora_inicio = datetime.strptime(horas_sep[0], time_format)
-        hora_fin = datetime.strptime(horas_sep[1], time_format)
-        duration = (hora_fin-hora_inicio).total_seconds()/(60*30) # Obtener la duración en bloques de 30 minutos
-        duration = '1'*int(duration) # Crea los bits que indican duración
-        inicio_h = hora_inicio.hour - 7   
-        inicio_m = hora_inicio.minute//30
-        horas = '0'*(inicio_h*2+inicio_m) + duration
-        horas = horas.ljust(30,'0')
-        horas = np.array(list(horas), dtype=int).reshape(30,1)
     
-        # Creación de la matriz
-        matriz = np.logical_and(horas, dias)
-        flatten = matriz.flatten()
-        bit_matrix = bitarray(flatten.tolist()) 
-        return bit_matrix
 
 
     def _generate(self):
