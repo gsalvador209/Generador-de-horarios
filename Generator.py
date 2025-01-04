@@ -10,11 +10,11 @@ from bitarray import bitarray
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from io import StringIO
+from datetime import datetime
 
 # TODO: 
-#   - Crear el pip freeze
+#   - Implementar la generación de horarios con la matriz de indisponibilidad
 #   - Corrección de ruta
-#   - Agregar bloqueo de horas
 #   - Implementación y pruebas en tiempo real
 #   - Agregar barra de progreso para el generador
 #   - Agregar modo grupos preferidos por materia
@@ -334,6 +334,47 @@ class Generador:
             #progress_bar.update(1)
         print(f"Los horarios de {self.materias.nombre_horario} han sido generados.")
         
+    def _checar_compatibilidad(self,A,B):
+        return not (A & B).any()
+
+    def _crear_matriz(self,dias_str, horas_str):
+        """
+        A partir de un horario con formato "Lun, Vie" y "07:00 a 09:00" crea una matriz de bits
+        que representa la indisponibilidad en agenda.
+        
+        ### Parámetros
+        - dias_str: str, días de la semana en formato "Dia, Dia"
+        - horas_str: str, horas en formato "HH:MM a HH:MM"
+
+        ### Retorno
+        - bit_matrix: bitarray, matriz de bits que representa la disponibilidad en agenda
+        """
+        orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'] 
+        time_format = "%H:%M"   
+
+        #Extrae los días que esan en formato "Lun, Vie"
+        dias_list = dias_str.split(", ")
+        dias = ['1' if dia in dias_list else '0' for dia in orden]
+        dias = np.array(dias, dtype=int).reshape(1, 6)
+
+        #Extrae las horas que estan en formato "07:00 a 09:00"
+        horas_sep = horas_str.split(" a ")
+        hora_inicio = datetime.strptime(horas_sep[0], time_format)
+        hora_fin = datetime.strptime(horas_sep[1], time_format)
+        duration = (hora_fin-hora_inicio).total_seconds()/(60*30) # Obtener la duración en bloques de 30 minutos
+        duration = '1'*int(duration) # Crea los bits que indican duración
+        inicio_h = hora_inicio.hour - 7   
+        inicio_m = hora_inicio.minute//30
+        horas = '0'*(inicio_h*2+inicio_m) + duration
+        horas = horas.ljust(30,'0')
+        horas = np.array(list(horas), dtype=int).reshape(30,1)
+    
+        # Creación de la matriz
+        matriz = np.logical_and(horas, dias)
+        flatten = matriz.flatten()
+        bit_matrix = bitarray(flatten.tolist()) 
+        return bit_matrix
+
 
     def _generate(self):
         if self.df != None:
