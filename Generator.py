@@ -6,6 +6,7 @@ import time
 import sys
 import os, shutil
 from bs4 import BeautifulSoup
+from bitarray import bitarray
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from io import StringIO
