@@ -42,12 +42,8 @@ class GUI:
         self.reset_button = ttk.Button(button_frame ,text="Limpiar hoja", command=self._reset_schedule)
         self.reset_button.pack(side="left", padx=10, pady=10)
 
-        self.save_button = ttk.Button(button_frame, text="Continuar", command=self._save_schedule)
+        self.save_button = ttk.Button(button_frame, text="Generar", command=self._save_schedule)
         self.save_button.pack(side="left", padx=10, pady=10)
-
-
-
-
 
     def _open_schedule(self):
         """
@@ -74,6 +70,7 @@ class GUI:
             self.selected_blocks.tofile(fh)
 
         self.selected_blocks = self.selected_blocks
+        self.close()
         
 
     
@@ -152,6 +149,9 @@ class GUI:
         self.canvas.delete("all")
         self._draw_grid()
         self.selected_blocks.setall(False)
+
+    def close(self):
+        self.root.destroy() 
 
 
 
