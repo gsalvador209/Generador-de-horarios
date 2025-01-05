@@ -20,7 +20,7 @@ call %VENV_DIR%\Scripts\activate
 
 REM Install required libraries
 echo Installing libraries...
-pip install pandas matplotlib beautifulsoup4 selenium lxml openpyxl
+pip install pandas matplotlib beautifulsoup4 selenium lxml openpyxl bitarray
 
 REM Freeze the installed libraries into requirements.txt
 echo Freezing dependencies into requirements.txt...
