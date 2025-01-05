@@ -12,7 +12,7 @@ from selenium.webdriver.firefox.options import Options
 from io import StringIO
 from datetime import datetime
 
-# TODO: 
+# TODO:
 #   - Implementar la generación de horarios con la matriz de indisponibilidad
 #   - Corrección de ruta
 #   - Implementación y pruebas en tiempo real
@@ -23,9 +23,9 @@ class FolderManager:
     #Se obtiene la carpeta actual
     def __init__(self):
         self.current_folder = os.getcwd()
-        
+
     def abrir_carpeta(self,ruta="Horarios_generados"):
-        ruta = os.path.join(self.current_folder,ruta) 
+        ruta = os.path.join(self.current_folder,ruta)
         if sys.platform == "win32":
             subprocess.Popen(f'explorer "{ruta}"')
         elif sys.platform == "darwin":
@@ -35,7 +35,7 @@ class FolderManager:
             # Linux
             subprocess.Popen(["xdg-open", ruta])
         else:
-            print("No se pudo abrir la carpeta")  
+            print("No se pudo abrir la carpeta")
 
     def clear_carpeta(self):
         folder = os.path.join(self.current_folder,"Horarios_generados")
@@ -49,7 +49,7 @@ class FolderManager:
                     shutil.rmtree(file_path)
             except Exception as e:
                 print('No fue posible borrar la carpeta %s. Excepción: %s' % (file_path, e))
-        
+
 
 class Materias:
     """
@@ -67,13 +67,13 @@ class Materias:
 
     @property
     def df_grupos(self):
-        return self._df_grupos  
+        return self._df_grupos
 
     def _crear_matriz(self,dias_str, horas_str):
         """
         A partir de un horario con formato "Lun, Vie" y "07:00 a 09:00" crea una matriz de bits
         que representa la indisponibilidad en agenda.
-        
+
         ### Parámetros
         - dias_str: str, días de la semana en formato "Dia, Dia"
         - horas_str: str, horas en formato "HH:MM a HH:MM"
@@ -81,8 +81,8 @@ class Materias:
         ### Retorno
         - bit_matrix: bitarray, matriz de bits que representa la disponibilidad en agenda
         """
-        orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'] 
-        time_format = "%H:%M"   
+        orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab']
+        time_format = "%H:%M"
 
         #Extrae los días que esan en formato "Lun, Vie"
         dias_list = dias_str.split(", ")
@@ -95,16 +95,16 @@ class Materias:
         hora_fin = datetime.strptime(horas_sep[1], time_format)
         duration = (hora_fin-hora_inicio).total_seconds()/(60*30) # Obtener la duración en bloques de 30 minutos
         duration = '1'*int(duration) # Crea los bits que indican duración
-        inicio_h = hora_inicio.hour - 7   
+        inicio_h = hora_inicio.hour - 7
         inicio_m = hora_inicio.minute//30
         horas = '0'*(inicio_h*2+inicio_m) + duration
         horas = horas.ljust(30,'0')
         horas = np.array(list(horas), dtype=int).reshape(30,1)
-    
+
         # Creación de la matriz
         matriz = np.logical_and(horas, dias)
         flatten = matriz.flatten()
-        bit_matrix = bitarray(flatten.tolist()) 
+        bit_matrix = bitarray(flatten.tolist())
         return bit_matrix
 
     def _gen_df(self, headless = True):
@@ -135,7 +135,7 @@ class Materias:
                 if clave_cache in claves:
                     df = pd.concat([df,cache.loc[cache['Clave'] == clave_cache]],axis=0,ignore_index=True)
                     claves.remove(clave_cache)
-            
+
         if len(claves) != 0:
             buscados = pd.DataFrame()
             # Abrir página de la facultad
@@ -151,7 +151,7 @@ class Materias:
             campo_clave = driver.find_element("id","clave")
             buscar = driver.find_element("id","buscar")
             # Iterar entre todas las claves para ir formando el horario
-        
+
             for clave in claves:
                 print(f"Buscando clave {clave}...")
                 campo_clave.clear()
@@ -163,32 +163,32 @@ class Materias:
                     nombre_materia = soup.find('div',{"class":"col-10"}).text.split()
 
                     nombre_filtrado = ' '.join((filter(lambda s: s not in palabras_excluidas, nombre_materia)))
-                    
+
                     nombre_filtrado = ''.join([i for i in nombre_filtrado if not i.isdigit()])
                     nombre_filtrado = nombre_filtrado[1:]
                     if (":" in nombre_filtrado):
                         nombre_filtrado = nombre_filtrado.split(':')
                         nombre_filtrado = nombre_filtrado[1:]
                         nombre_filtrado = ' '.join(nombre_filtrado)
-                
+
                     tables = soup.find_all('table')
 
                     for table in tables:
-                        nombre_tabla = table.find('tbody').find('tr').find('th').text  
-                        #print(nombre_tabla)  
+                        nombre_tabla = table.find('tbody').find('tr').find('th').text
+                        #print(nombre_tabla)
 
                         if nombre_tabla == "GRUPOS SIN VACANTES":
                             if len(tables) == 1:
                                 if(self.real_time):
-                                    raise Exception("Ya no hay grupos disponibles para la materia " + nombre_filtrado + ". Intenta con otras claves.") 
+                                    raise Exception("Ya no hay grupos disponibles para la materia " + nombre_filtrado + ". Intenta con otras claves.")
                                 #print("No hay grupos disponibles para la materia " + nombre_filtrado)
                             else:
                                 continue
 
                         primera_clave = table.find_all('tbody')[1].find('tr').find('td').text
                         if int(primera_clave) > 5000:
-                            nombre_filtrado = "L." + nombre_filtrado  
-                            #print("Laboratorio")  
+                            nombre_filtrado = "L." + nombre_filtrado
+                            #print("Laboratorio")
 
                         opciones = pd.read_html(StringIO(str(table)))[0]
                         opciones[('AUX','Nombre')] = [nombre_filtrado for _ in range(len(opciones))]
@@ -200,13 +200,13 @@ class Materias:
             driver.quit()
             buscados.columns = [col [1] for col in buscados.columns]
             df = pd.concat([df,buscados],axis=0,ignore_index=True)
-        
+
         if cache_found:
             new_cache = pd.merge(df,cache,how='outer')
             new_cache.to_excel(self.cache_materias, index=False)
         else:
             df.to_excel(self.cache_materias, index=False)
-        
+
         self.claves_mat = list(df['Clave'].unique())
 
         df['Binary'] = df.apply(lambda row: self._crear_matriz(row['Días'], row['Horario']), axis=1)
@@ -231,15 +231,15 @@ class Generador:
     @property
     def lista_horarios(self):
         return self._lista_horarios
-    
+
 
     def _ordenarDataFrame(self,df):
         renglones_por_clv = df.groupby('Clave').size().reset_index(name = 'Opciones')
         df_ordenado = df.merge(renglones_por_clv, on = 'Clave').sort_values(['Opciones','Clave'],ascending = False)
         df_ordenado = df_ordenado.reset_index(drop=True)
         return df_ordenado
- 
-    
+
+
 
     # #Verificación por horario
     # def _hayTraslapeHoras(self,a,b): #DataFrame, comparativa a comparativa b
@@ -250,9 +250,9 @@ class Generador:
     #             return True
     #     else:
     #         if(abs(b.Inicio_min - a.Inicio_min) < b.Duracion*60):
-    #             return True 
+    #             return True
     #     return False
-        
+
 
     def _noTraslape(self,horario_armandose,rows_materia):
         horario_bin = bitarray(30*6)
@@ -268,7 +268,7 @@ class Generador:
 
         return not (horario_bin & materia_bin).any()
 
-    # def _noHayTraslapeDias(self,horario_actual,materia):    
+    # def _noHayTraslapeDias(self,horario_actual,materia):
     #     """
     #     Verifica si existe un Traslape entre un potencial horario_actual y una materia (renglón del dataframe)
 
@@ -289,8 +289,8 @@ class Generador:
     #                 if(self._hayTraslapeHoras(horario_actual.iloc[i],grupo)):
     #                     return False
     #     return True
-  
-        
+
+
     def _combinarMaterias(self,horario,materia_actual):
         """
         Es una función recursiva que toma los parámetros para ir concatenando un horario
@@ -300,7 +300,7 @@ class Generador:
                 El horario que se va formando
             materia_actual: int
                 La materia del renglón del df que se concatena
-        
+
         """
         if len(horario.Clave.unique())==len(self.claves) or materia_actual in horario.Clave:
             return
@@ -322,32 +322,55 @@ class Generador:
                     siguiente_mat_ind = self.claves.index(materia_actual) + 1
                     self._combinarMaterias(horario,self.claves[siguiente_mat_ind])
                 horario = temp
-    
 
-    def _plotMateria(self,df,gnt):
+
+    def _plotMateria(self,gpo_materia,gnt):
         import random
         R = random.uniform(0.3,0.75)
         G = random.uniform(0, 0.1)
         B = random.uniform(0.6, 1)
-        
+
         i = 0
-        hora = (df.Inicio_min/60)
-        duracion = df.Duracion
+        ba = gpo_materia.Binary
+
+        dias = [any(ba[row * 6 + col] for row in range(30)) for col in range(6)]
         
-        for cat in df.loc[['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab']]: #Lo que hace es particionar el df a los días de la semana
-            if cat == 1:
+
+        # exit()
+
+        # matrix = []
+        # for i in range(6):
+        #     row = ba[i * 6:(i + 1) * 6]
+        #     matrix.append(row.tolist())
+
+        # print(matrix)
+        # return
+
+        for i,val in enumerate(dias): #Lo que hace es particionar el df a los días de la semana
+            if val:
+                duracion = 0#sum(ba[row * 6 + i] for row in range(30))/2
+                hora = -1
+                for row in range(30):
+                    if ba[row * 6 + i] == 1:
+                        # Count the number of zeros before the first 1
+                        if hora == -1:
+                            hora = row  # The number of zeros is the row index
+                        duracion += 1
+                
+                duracion /= 2
+                hora = 7 + hora / 2        
+                   
                 #print(df)
                 gnt.broken_barh([(i,1)], (hora, duracion) ,facecolors = (R, G, B))
-                nombre_materia = df['Nombre'][:9]                                                     #Corta el texto para que quepa en el cuadro
-                nombre_profe = df['Profesor'].split(" ")
+                nombre_materia = gpo_materia['Nombre'][:9]                                                     #Corta el texto para que quepa en el cuadro
+                nombre_profe = gpo_materia['Profesor'].split(" ")
                 nombre_pila = nombre_profe[1]
                 nombre_pila = nombre_pila[:5]
                 apellido = nombre_profe[-2]
                 #nombre_pila = df.Profesor[:7]
                 inicial = apellido [:1]
-                nombre = nombre_materia + "\n" + str(df['Gpo']) + " " + nombre_pila  + " " + inicial                                    
+                nombre = nombre_materia + "\n" + str(gpo_materia['Gpo']) + " " + nombre_pila  + " " + inicial
                 gnt.text(i+0.1,hora+1.5,nombre,color="white",fontweight = "bold",fontsize = 8) #x,y,texto,color,grosor y tamaño
-            i = i+1
 
 
     def _plotHorario(self,horario, numero):
@@ -388,10 +411,10 @@ class Generador:
             n+=1
             #progress_bar.update(1)
         print(f"Los horarios de {self.materias.nombre_horario} han sido generados.")
-        
+
     def _compatibilidad(self,A,B):
         return not (A & B).any()
-    
+
 
 
     def _generate(self):
@@ -399,12 +422,12 @@ class Generador:
             horario = df.head(0)
             self._combinarMaterias(horario,self.claves[0])
             return
-        
+
         df = self.materias.df_grupos
         df = self._ordenarDataFrame(df)
-        
+
         # #Crea el encabezado de los dummy values de los días (en orden)
-        # orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'] 
+        # orden = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab']
 
         # #Obtiene los dummy values directo del df
         # dummy_dias = pd.Series(df.Días).str.get_dummies(sep=', ')
@@ -455,8 +478,8 @@ class Generador:
         #         deleted = df.loc[(df['Inicio_min'] < min_entrada) | (df['Sab'] == 1),:]
 
         #     claves_desechadas = deleted.itertuples()
-            
-            
+
+
         #     for fila in claves_desechadas:
         #         df.drop(df[(df['Clave'] == fila[1]) & (df['Gpo'] == fila[2])].index,inplace=True)
         #     df = df.reset_index(drop=True)
@@ -472,7 +495,7 @@ class Generador:
 
 
         #     claves_desechadas = deleted.itertuples()
-            
+
         #     for fila in claves_desechadas:
         #         df.drop(df[(df['Clave'] == fila[1]) & (df['Gpo'] == fila[2])].index,inplace=True)
         #     df = df.reset_index(drop=True)
@@ -485,11 +508,11 @@ class Generador:
 
 
 
-        df.to_excel("Test_after.xlsx")
+        #df.to_excel("Test_after.xlsx")
         df = df[df.apply(lambda row: self._compatibilidad(self.indisp,row.Binary), axis=1)]
-        df = df.reset_index(drop=True)  
-        df.to_excel("Test_before.xlsx")
-        exit()
+        df = df.reset_index(drop=True)
+        #df.to_excel("Test_before.xlsx")
+        #exit()
         self.df = df
         horario = df.head(0)
         self._combinarMaterias(horario,self.claves[0])
