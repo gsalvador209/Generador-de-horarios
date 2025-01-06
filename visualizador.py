@@ -8,10 +8,10 @@ class GUI:
     """
     def __init__(self, root, width=600, height=600):
         
+        self.color = "LightGoldenrod3"
         self.days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
         self.hours = [f"{h}:00" for h in range(7, 22)] + [f"{h}:30" for h in range(7, 22)]
         self.hours = sorted(self.hours, key=lambda t: (int(t.split(":")[0]), int(t.split(":")[1])))
-        
         # Dimensiones y datos iniciales
         self.CELL_WIDTH = 100
         self.CELL_HEIGHT = 20
@@ -92,7 +92,7 @@ class GUI:
                     self.canvas.create_rectangle(
                         col * self.CELL_WIDTH + self.OFFSET_X, row *self. CELL_HEIGHT + self.OFFSET_Y,
                         (col + 1) * self.CELL_WIDTH + self.OFFSET_X, (row + 1) * self.CELL_HEIGHT + self.OFFSET_Y,
-                        fill="lightblue", outline="gray"
+                        fill=self.color, outline="gray"
                     )
             else:
                 if self.state[0] == 'erasing' or self.state[0] == 'waiting':
@@ -142,7 +142,7 @@ class GUI:
                 self.canvas.create_rectangle(
                     col * self.CELL_WIDTH + self.OFFSET_X, row * self.CELL_HEIGHT +self.OFFSET_Y,
                     (col + 1) * self.CELL_WIDTH + self.OFFSET_X, (row + 1) * self.CELL_HEIGHT + self.OFFSET_Y,
-                    fill="lightblue", outline="gray"
+                    fill=self.color, outline="gray"
                 )
 
     def _reset_schedule(self):
