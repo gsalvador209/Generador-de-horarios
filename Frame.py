@@ -2,6 +2,12 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 
+"""
+TODO:
+    - Solicitar nombre del horario
+    - Ignorar espacios en blanco
+"""
+
 
 class DynamicKeyApp(tk.Tk):
     def __init__(self):
@@ -16,7 +22,9 @@ class DynamicKeyApp(tk.Tk):
         self.input_frame.pack(fill="both", expand=True)
 
         # Add the first key placeholder
-        self.add_key_placeholder()
+        self.load_keys()
+        if len(self.keys) < 8:
+            self.add_key_placeholder()
 
         # Add the Finish button
         self.finish_button = ttk.Button(
@@ -75,7 +83,7 @@ class DynamicKeyApp(tk.Tk):
         keys = []
         for key_frame in self.keys:
             key_entry = key_frame.winfo_children()[0]  # Get the entry widget
-            if key_entry.get().isdigit() and len(key_entry.get()) == 4:
+            if key_entry.get().isdigit() and (len(key_entry.get()) == 4 or len(key_entry.get()) == 3):
                 keys.append(key_entry.get())
 
         if not keys:
@@ -84,12 +92,32 @@ class DynamicKeyApp(tk.Tk):
 
         # Save the keys to a text file
         with open("keys.txt", "w") as file:
-            for key in keys:
-                file.write(f"{key}\n")
+            file.write(str(keys))
 
         print("Keys saved to keys.txt")
         self.destroy()  # Close the application
 
+    def load_keys(self):
+        """Loads keys from a text file."""
+        try:
+            with open("keys.txt", "r") as file:
+                keys = eval(file.read())
+
+            for key in keys:
+                self.add_key_placeholder()
+                key_entry = self.keys[-1].winfo_children()[0]
+                key_entry.insert(0, key)
+                key_entry.config(state="disabled") # Lock the current key
+                key_entry.unbind("<Return>")
+                key
+
+            return True
+        except FileNotFoundError:
+            print("No keys file found.")
+            return False
+        except Exception as e:
+            print(f"An error occurred while loading keys: {e}")
+            return False
 
 if __name__ == "__main__":
     app = DynamicKeyApp()
