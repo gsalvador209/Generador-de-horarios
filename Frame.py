@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
+import pickle
+import json
 
 """
 TODO:
@@ -9,44 +11,88 @@ TODO:
 """
 
 
-class DynamicKeyApp(tk.Tk):
+class MenuClaves(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Dynamic Key Placeholders")
+        self.title("Generador de horarios")
         self.geometry("600x600")
-        self.max_keys = 8  # Maximum number of keys allowed
-        self.keys = []  # List to hold references to key entry widgets
+        self.dict_claves = {}
+        self.max_claves = 8  # Máximo de claves a ingresar
+        self.claves = []  # Lista que contiene los widgets de las claves, no las claves en sí
+        self.loading = True
+        self.label = ttk.Label(
+            self, text="Ingresa las claves de las materias a inscribir", 
+            font=("Arial", 12)
+        )
+        self.label.pack(side="top", pady=10)
 
-        # Create a Frame for input widgets
+        # Frame para las claves
         self.input_frame = ttk.Frame(self, padding=10)
         self.input_frame.pack(fill="both", expand=True)
+        
+        # Añade los placeholder para las claves
+        
+        self.load_subject_names()
 
-        # Add the first key placeholder
-        self.load_keys()
-        if len(self.keys) < 8:
+
+        if not self.load_claves():
+            self.add_key_placeholder()
+
+        if len(self.claves) < self.max_claves:
             self.add_key_placeholder()
 
         # Add the Finish button
-        self.finish_button = ttk.Button(
-            self, text="Finish", command=self.save_and_close
+        self.continue_button = ttk.Button(
+            self, text="Continuar", command=self.save_and_close
         )
-        self.finish_button.pack(side="bottom", pady=20)
+        self.continue_button.pack(side="bottom", pady=20)
 
-    def add_key_placeholder(self):
-        """Adds a new key entry placeholder."""
-        if len(self.keys) < self.max_keys:
-            row_index = len(self.keys)
+    def add_key_placeholder(self, existing_key=""):
+        """
+        Agrega un placeholder para ingresar una clave. 
+        """
+        if len(self.claves) < self.max_claves:
+            row_index = len(self.claves)
 
-            # Create a Frame to hold the key entry and delete button
-            key_frame = ttk.Frame(self.input_frame)
+            key_frame = ttk.Frame(self.input_frame) # El placeholder existe como hijo de input_frame
             key_frame.grid(row=row_index, column=0, sticky="w", pady=5)
 
-            # Key entry widget
+            # El verdadero espacio donde se escriben las claves
             key_entry = ttk.Entry(key_frame, font=("Arial", 14), width=10, justify="center")
             key_entry.grid(row=0, column=0, padx=5)
-            key_entry.bind("<Return>", lambda event: self.on_key_submit(key_entry))  # Bind Enter key
+            
+            if existing_key != "":
+                #print("Existing key:", existing_key)
+                key_entry.insert(0, existing_key)
+                self.on_key_submit(key_frame)
+            else:    
+                key_entry.bind("<Return>", lambda event: self.on_key_submit(key_frame))  # Bind Enter key
 
-            # Delete button for the key
+            #self.claves.append(key_frame)
+
+    def remove_key_placeholder(self, key_frame):
+        """Removes a key entry placeholder."""
+        self.claves.remove(key_frame)
+        key_frame.destroy()  # Remove from the UI
+        
+        print(f"Se ha eliminado una clave. Actualmente hay {len(self.claves)} claves.")
+        if len(self.claves) == self.max_claves-1:
+            self.add_key_placeholder()
+        self.update_keyframe_rows()
+
+    def on_key_submit(self, key_frame):
+        """
+        Crea un nuevo placeholder cuando verifica la clave y se presiona Enter.
+        """
+        key_entry = key_frame.winfo_children()[0]  # Obtiene el widget del texto
+        key = key_entry.get()
+        if (len(key) == 4 or  len(key == 3)) and key.isdigit():
+            print(f"La clave {key} se ha registrado.")
+            # Bloquea la entrada en este entry
+            key_entry.config(state="disabled")
+            key_entry.unbind("<Return>")  
+
+            # Se crea el botón de borrar
             delete_button = ttk.Button(
                 key_frame,
                 text="X",
@@ -55,70 +101,98 @@ class DynamicKeyApp(tk.Tk):
             )
             delete_button.grid(row=0, column=1)
 
-            # Keep track of the key entry and its container
-            self.keys.append(key_frame)
+            # Se crea el nombre si lo encuentra
+            nombre = self.find_subject_name(key)
+            if nombre:
+                nombre_label = ttk.Label(key_frame, text=nombre, font=("Arial", 12))
+                nombre_label.grid(row=0, column=2, padx=5)
 
-    def remove_key_placeholder(self, key_frame):
-        """Removes a key entry placeholder."""
-        self.keys.remove(key_frame)
-        key_frame.destroy()  # Remove from the UI
-
-    def on_key_submit(self, key_entry):
-        """Handles the Enter key event for key submission."""
-        key = key_entry.get()
-        if len(key) == 4 and key.isdigit():
-            print(f"Key accepted: {key}")
-
-            # Clear the current key entry
-            key_entry.config(state="disabled")  # Lock the current key
-            key_entry.unbind("<Return>")  # Unbind Enter to prevent re-submission
-
-            # Add a new key placeholder if not at max
-            self.add_key_placeholder()
+            self.claves.append(key_frame)
+            self.update_keyframe_rows()
+            # Añade un nuevo placeholder
+            if not self.loading:
+                self.add_key_placeholder()
         else:
-            print("Invalid key. Please enter a 4-digit number.")
+            print("Clave de materia no válida.")
 
     def save_and_close(self):
-        """Saves all entered keys to a text file and closes the application."""
-        keys = []
-        for key_frame in self.keys:
+        """Saves all entered claves to a text file and closes the application."""
+        claves = []
+        for key_frame in self.claves:
             key_entry = key_frame.winfo_children()[0]  # Get the entry widget
             if key_entry.get().isdigit() and (len(key_entry.get()) == 4 or len(key_entry.get()) == 3):
-                keys.append(key_entry.get())
+                claves.append(key_entry.get())
 
-        if not keys:
-            messagebox.showwarning("No Keys", "No valid keys to save.")
-            return
+        # if not claves:
+        #     messagebox.showwarning("No claves", "No valid claves to save.")
+        #     exit()
+        #     return
 
-        # Save the keys to a text file
-        with open("keys.txt", "w") as file:
-            file.write(str(keys))
+        # Save the claves to a binary file
+        with open("claves.pkl", "wb") as file:
+            pickle.dump(claves, file)
 
-        print("Keys saved to keys.txt")
+        print("Las claves se guadradon exitosamente.")
         self.destroy()  # Close the application
 
-    def load_keys(self):
-        """Loads keys from a text file."""
+    def update_keyframe_rows(self):
+        """Updates the row index of each key frame."""
+        for i, key_frame in enumerate(self.claves):
+            key_frame.grid(row=i, column=0, sticky="w", pady=5)
+
+    def load_claves(self):
+        """Loads claves from a text file."""
         try:
-            with open("keys.txt", "r") as file:
-                keys = eval(file.read())
+            with open("claves.pkl", "rb") as file:
+                claves = pickle.load(file)
 
-            for key in keys:
-                self.add_key_placeholder()
-                key_entry = self.keys[-1].winfo_children()[0]
-                key_entry.insert(0, key)
-                key_entry.config(state="disabled") # Lock the current key
-                key_entry.unbind("<Return>")
-                key
+            if not claves:
+                self.loading = False
+                print("No claves found.")
+                return False
 
+            for key in claves:
+                self.add_key_placeholder(existing_key=key)
+                
+            self.loading = False
             return True
         except FileNotFoundError:
-            print("No keys file found.")
+            print("No claves file found.")
             return False
         except Exception as e:
-            print(f"An error occurred while loading keys: {e}")
+            print(f"An error occurred while loading claves: {e}")
             return False
+    
+    def load_subject_names(self):
+        """
+        Carga los nombres de las materias desde un archivo JSON.
+        """
+        try:
+            with open("nombres_materias.json", "r") as file:
+                self.dict_claves = json.load(file)
+                print(self.dict_claves)
+                pass
+        except FileNotFoundError:
+            print("No se encontró el archivo de nombres de materias.")
+
+
+    def find_subject_name(self, clave):
+        """
+        Encuentra el nombre almacenado para la materia en el archivo JSON
+        """
+        return None
+        try:
+            with open("nombres_materias.json", "r") as file:
+                for line in file:
+                    record = json.loads(line)
+                    print(record)
+                    if record['clave'] == clave:
+                        print(f"Se encontró el nombre de la materia {clave}: {record['nombre']}")
+                        return record['nombre']
+        except FileNotFoundError:
+            print("No se encontró el archivo de nombres de materias.")
+            return None
 
 if __name__ == "__main__":
-    app = DynamicKeyApp()
+    app = MenuClaves()
     app.mainloop()
