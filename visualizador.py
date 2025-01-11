@@ -1,43 +1,225 @@
 import tkinter as tk
+import tkinter as ttk
+import tkinter as messagebox
+import pickle
+import json
 from tkinter import ttk
 from bitarray import bitarray
 
-class GUI:
+class GUI(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Generador de Horarios")
+        self.width = 600
+        self.height = 600
+        self.geometry(f"{self.width}x{self.height}")
+        self.frames = {
+            "Frame1": MenuClaves(self),
+            "Frame2": Indisponibility(self)
+        }
+
+        for frame in self.frames.values():
+            frame.place(x=0, y=0, relwidth=1, relheight=1)
+
+        self.show_frame("Frame1")
+
+    def show_frame(self, frame_name):
+        frame = self.frames[frame_name]
+        frame.lift()
+
+class MenuClaves(ttk.Frame):
+    def __init__(self,parent):
+        super().__init__(parent)
+        self.parent = parent
+        self.dict_claves = {}
+        self.max_claves = 8  # Máximo de claves a ingresar
+        self.claves = []  # Lista que contiene los widgets de las claves, no las claves en sí
+        self.loading = True
+        self.label = ttk.Label(
+            self, text="Ingresa las claves de las materias a inscribir", 
+            font=("Arial", 12)
+        )
+        self.label.pack(side="top", pady=10)
+
+        # Frame para las claves
+        self.input_frame = ttk.Frame(self, padding=10)
+        self.input_frame.pack(fill="both", expand=True)
+        
+        # Añade los placeholder para las claves
+        
+        self.load_subject_names()
+
+
+        if not self.load_claves():
+            self.add_key_placeholder()
+
+        if len(self.claves) < self.max_claves:
+            self.add_key_placeholder()
+
+        # Add the Finish button
+        self.continue_button = ttk.Button(
+            self, text="Continuar", command=self.save_and_close
+        )
+        self.continue_button.pack(side="bottom", pady=20)
+
+    def add_key_placeholder(self, existing_key=""):
+        """
+        Agrega un placeholder para ingresar una clave. 
+        """
+        if len(self.claves) < self.max_claves:
+            row_index = len(self.claves)
+
+            key_frame = ttk.Frame(self.input_frame) # El placeholder existe como hijo de input_frame
+            key_frame.grid(row=row_index, column=0, sticky="w", pady=5)
+
+            # El verdadero espacio donde se escriben las claves
+            key_entry = ttk.Entry(key_frame, font=("Arial", 14), width=10, justify="center")
+            key_entry.grid(row=0, column=0, padx=5)
+            
+            if existing_key != "":
+                #print("Existing key:", existing_key)
+                key_entry.insert(0, existing_key)
+                self.on_key_submit(key_frame)
+            else:    
+                key_entry.bind("<Return>", lambda event: self.on_key_submit(key_frame))  # Bind Enter key
+
+            #self.claves.append(key_frame)
+
+    def remove_key_placeholder(self, key_frame):
+        """Removes a key entry placeholder."""
+        self.claves.remove(key_frame)
+        key_frame.destroy()  # Remove from the UI
+        
+        print(f"Se ha eliminado una clave. Actualmente hay {len(self.claves)} claves.")
+        if len(self.claves) == self.max_claves-1:
+            self.add_key_placeholder()
+        self.update_keyframe_rows()
+
+    def on_key_submit(self, key_frame):
+        """
+        Crea un nuevo placeholder cuando verifica la clave y se presiona Enter.
+        """
+        key_entry = key_frame.winfo_children()[0]  # Obtiene el widget del texto
+        key = key_entry.get()
+        if (len(key) == 4 or  len(key == 3)) and key.isdigit():
+            print(f"La clave {key} se ha registrado.")
+            # Bloquea la entrada en este entry
+            key_entry.config(state="disabled")
+            key_entry.unbind("<Return>")  
+
+            # Se crea el botón de borrar
+            delete_button = ttk.Button(
+                key_frame,
+                text="X",
+                width=2,
+                command=lambda: self.remove_key_placeholder(key_frame),
+            )
+            delete_button.grid(row=0, column=1)
+
+            # Se crea el nombre si lo encuentra
+            nombre = self.dict_claves.get(key)
+            if nombre:
+                nombre_label = ttk.Label(key_frame, text=nombre, font=("Arial", 12))
+                nombre_label.grid(row=0, column=2, padx=5)
+
+            self.claves.append(key_frame)
+            self.update_keyframe_rows()
+            # Añade un nuevo placeholder
+            if not self.loading:
+                self.add_key_placeholder()
+        else:
+            print("Clave de materia no válida.")
+
+    def save_and_close(self):
+        """Saves all entered claves to a text file and closes the application."""
+        claves = []
+        for key_frame in self.claves:
+            key_entry = key_frame.winfo_children()[0]  # Get the entry widget
+            if key_entry.get().isdigit() and (len(key_entry.get()) == 4 or len(key_entry.get()) == 3):
+                claves.append(key_entry.get())
+
+        # Save the claves to a binary file
+        with open("claves.pkl", "wb") as file:
+            pickle.dump(claves, file)
+
+        print("Las claves se guadradon exitosamente.")
+        self.parent.show_frame("Frame2")
+
+    def update_keyframe_rows(self):
+        """Updates the row index of each key frame."""
+        for i, key_frame in enumerate(self.claves):
+            key_frame.grid(row=i, column=0, sticky="w", pady=5)
+
+    def load_claves(self):
+        """Loads claves from a text file."""
+        try:
+            with open("claves.pkl", "rb") as file:
+                claves = pickle.load(file)
+
+            if not claves:
+                self.loading = False
+                print("No claves found.")
+                return False
+
+            for key in claves:
+                self.add_key_placeholder(existing_key=key)
+                
+            self.loading = False
+            return True
+        except FileNotFoundError:
+            print("No claves file found.")
+            return False
+        except Exception as e:
+            print(f"An error occurred while loading claves: {e}")
+            return False
+    
+    def load_subject_names(self):
+        """
+        Carga los nombres de las materias desde un archivo JSON.
+        """
+        try:
+            with open("nombres_materias.json", "r") as file:
+                self.dict_claves = json.load(file)
+                #print(self.dict_claves)
+                pass
+        except FileNotFoundError:
+            print("No se encontró el archivo de nombres de materias.")
+
+
+class Indisponibility(ttk.Frame):
     """
     Clase que permite la creación de una interfaz gráfica para la creación de horarios de clases.
     """
-    def __init__(self, root, width=600, height=600):
-        
+    def __init__(self, parent):
+        super().__init__(parent) 
+        self.parent = parent  
+        self.OFFSET_X = 60
+        self.OFFSET_Y = 30
+        self.WIDTH = parent.width + self.OFFSET_X
+        self.HEIGHT = parent.height + self.OFFSET_Y
         self.color = "LightGoldenrod3"
         self.days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
         self.hours = [f"{h}:00" for h in range(7, 22)] + [f"{h}:30" for h in range(7, 22)]
         self.hours = sorted(self.hours, key=lambda t: (int(t.split(":")[0]), int(t.split(":")[1])))
         # Dimensiones y datos iniciales
-        self.CELL_WIDTH = 100
-        self.CELL_HEIGHT = 20
-        self.OFFSET_X = 60
-        self.OFFSET_Y = 30
-        self.WIDTH = width + self.OFFSET_X
-        self.HEIGHT = height + self.OFFSET_Y
+        self.CELL_WIDTH = self.WIDTH // 8
+        self.CELL_HEIGHT = (self.HEIGHT-150) // 30
         self.state = ['waiting']
 
-        self.root = root
-        self.root.title("Generador de Horarios")
-
         # Crear Canvas
-        self.canvas = tk.Canvas(self.root, width=self.WIDTH, height=self.HEIGHT, bg="white")
+        self.canvas = tk.Canvas(self, width=self.WIDTH, height=self.HEIGHT-100, bg="white")
         self._open_schedule() # Cargar horario guardado
         self._draw_saved_schedule()
-
         self.canvas.pack()
+
         self.canvas.bind("<B1-Motion>",self._on_drag)
         self.canvas.bind("<ButtonRelease-1>",self._released_togle)
         # Dibujar cuadrícula inicial
         self._draw_grid()
 
         # Botones
-        button_frame = tk.Frame(self.root)
-        button_frame.pack()
+        button_frame = tk.Frame(self)
+        button_frame.pack(side="bottom", fill="x")
 
         self.reset_button = ttk.Button(button_frame ,text="Limpiar hoja", command=self._reset_schedule)
         self.reset_button.pack(side="left", padx=10, pady=10)
@@ -151,7 +333,7 @@ class GUI:
         self.selected_blocks.setall(False)
 
     def close(self):
-        self.root.destroy() 
+        self.parent.destroy() 
 
 
 
