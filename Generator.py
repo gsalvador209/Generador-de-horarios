@@ -11,6 +11,7 @@ from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from io import StringIO
 from datetime import datetime
+import json
 
 # TODO:
 #   - Implementar la GUI para la selección de materias
@@ -63,6 +64,7 @@ class Materias:
         self._df_grupos = df_grupos
         self.real_time = real_time
         self.silence = silence
+        self._dict_mat = dict()
         self._gen_df(self.silence)
 
     @property
@@ -161,16 +163,20 @@ class Materias:
                 soup = BeautifulSoup(page_source, features="lxml")
                 try:
                     nombre_materia = soup.find('div',{"class":"col-10"}).text.split()
+                    nombre_completo = nombre_materia
 
                     nombre_filtrado = ' '.join((filter(lambda s: s not in palabras_excluidas, nombre_materia)))
+                    nombre_completo = ' '.join(filter(lambda s : s not in ['TALLER','-','SOCIO-HUM.:'],nombre_completo))
 
                     nombre_filtrado = ''.join([i for i in nombre_filtrado if not i.isdigit()])
+                    nombre_completo = ''.join([i for i in nombre_completo if not i.isdigit()])
                     nombre_filtrado = nombre_filtrado[1:]
+                    nombre_completo = nombre_completo[1:]
                     if (":" in nombre_filtrado):
                         nombre_filtrado = nombre_filtrado.split(':')
                         nombre_filtrado = nombre_filtrado[1:]
                         nombre_filtrado = ' '.join(nombre_filtrado)
-
+                    nombre_filtrado.replace("BASES","B.")
                     tables = soup.find_all('table')
 
                     for table in tables:
@@ -188,6 +194,7 @@ class Materias:
                         primera_clave = table.find_all('tbody')[1].find('tr').find('td').text
                         if int(primera_clave) > 5000:
                             nombre_filtrado = "L." + nombre_filtrado
+                            nombre_completo = "L." + nombre_completo
                             #print("Laboratorio")
 
                         opciones = pd.read_html(StringIO(str(table)))[0]
@@ -196,6 +203,24 @@ class Materias:
                 except AttributeError:
                     print(f"No fue posible encontrar algúna asignatura con clave {clave}. Se ignorará esta clave.")
                     claves_to_remove.append(clave) #Aun no se usa
+                    continue
+
+                self._dict_mat[clave] = nombre_completo
+                print(f"Se encontró la materia {nombre_completo} con clave {clave}.")
+
+            try:
+                with open("nombres_materias.json", "r") as file:
+                    try:
+                        temp = json.load(file)
+                    except json.JSONDecodeError:
+                        temp = {}
+                    temp.update(self._dict_mat)
+
+                with open("nombres_materias.json", "w") as file:
+                    file.write(json.dumps(temp))
+                    pass
+            except FileNotFoundError:
+                Warning("No se encontró el archivo de nombres de materias.")    
 
             driver.quit()
             buscados.columns = [col [1] for col in buscados.columns]
@@ -351,15 +376,17 @@ class Generador:
                    
                 #print(df)
                 gnt.broken_barh([(i,1)], (hora, duracion) ,facecolors = (R, G, B))
-                nombre_materia = gpo_materia['Nombre'][:9]                                                     #Corta el texto para que quepa en el cuadro
+                nombre_materia = gpo_materia['Nombre'][:11]                                                     #Corta el texto para que quepa en el cuadro
                 nombre_profe = gpo_materia['Profesor'].split(" ")
                 nombre_pila = nombre_profe[1]
                 nombre_pila = nombre_pila[:5]
-                apellido = nombre_profe[-2]
+                apellido = nombre_profe[-4]
+                #print(nombre_profe)
+                apellido = apellido[:3]
                 #nombre_pila = df.Profesor[:7]
                 inicial = apellido [:1]
-                nombre = nombre_materia + "\n" + str(gpo_materia['Gpo']) + " " + nombre_pila  + " " + inicial
-                gnt.text(i+0.1,hora+1.5,nombre,color="white",fontweight = "bold",fontsize = 8) #x,y,texto,color,grosor y tamaño
+                nombre = nombre_materia + "\n" + str(gpo_materia['Gpo']) + " " + nombre_pila  + " " + apellido + " "
+                gnt.text(i+0.1,hora+1.5,nombre,color="white",fontweight = "bold",fontsize = 7) #x,y,texto,color,grosor y tamaño
 
 
     def _plotHorario(self,horario, numero):

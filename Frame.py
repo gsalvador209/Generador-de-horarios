@@ -102,7 +102,7 @@ class MenuClaves(tk.Tk):
             delete_button.grid(row=0, column=1)
 
             # Se crea el nombre si lo encuentra
-            nombre = self.find_subject_name(key)
+            nombre = self.dict_claves.get(key)
             if nombre:
                 nombre_label = ttk.Label(key_frame, text=nombre, font=("Arial", 12))
                 nombre_label.grid(row=0, column=2, padx=5)
@@ -170,28 +170,11 @@ class MenuClaves(tk.Tk):
         try:
             with open("nombres_materias.json", "r") as file:
                 self.dict_claves = json.load(file)
-                print(self.dict_claves)
+                #print(self.dict_claves)
                 pass
         except FileNotFoundError:
             print("No se encontró el archivo de nombres de materias.")
 
-
-    def find_subject_name(self, clave):
-        """
-        Encuentra el nombre almacenado para la materia en el archivo JSON
-        """
-        return None
-        try:
-            with open("nombres_materias.json", "r") as file:
-                for line in file:
-                    record = json.loads(line)
-                    print(record)
-                    if record['clave'] == clave:
-                        print(f"Se encontró el nombre de la materia {clave}: {record['nombre']}")
-                        return record['nombre']
-        except FileNotFoundError:
-            print("No se encontró el archivo de nombres de materias.")
-            return None
 
 if __name__ == "__main__":
     app = MenuClaves()
