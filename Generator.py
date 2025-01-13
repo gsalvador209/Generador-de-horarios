@@ -12,6 +12,7 @@ from selenium.webdriver.firefox.options import Options
 from io import StringIO
 from datetime import datetime
 import json
+import pickle as pkl
 
 # TODO:
 #   - Implementar la GUI para la selección de materias
@@ -58,9 +59,9 @@ class Materias:
     """
     cache_materias = "cache_materias.xlsx"
 
-    def __init__(self, claves_mat: list, nombre_horario : str = "Opciones",df_grupos = None, real_time = False, silence = True):
+    def __init__(self, nombre_horario : str = "Opciones",df_grupos = None, real_time = False, silence = True):
         self.nombre_horario = nombre_horario
-        self.claves_mat = claves_mat
+        self.claves_mat = self._read_claves()
         self._df_grupos = df_grupos
         self.real_time = real_time
         self.silence = silence
@@ -70,6 +71,19 @@ class Materias:
     @property
     def df_grupos(self):
         return self._df_grupos
+
+    def _read_claves(self):
+        """
+        Lee las claves de las materias que se van a considerar para la generación de horarios.
+        """
+        try:
+            with open("claves.pkl", "rb") as file:
+                keys = pkl.load(file)
+                return keys
+        except FileNotFoundError:
+            raise("No se encontró el archivo de claves de materias.")
+        
+
 
     def _crear_matriz(self,dias_str, horas_str):
         """
@@ -125,7 +139,7 @@ class Materias:
             print("Se está generando el DataFrame en tiempo real, esto puede tomar varios minutos.")
         else:
             try:
-                cache = pd.read_excel(self.cache_materias)
+                cache = pd.read_excel(self.cache_materias,dtype={'Clave':str})
                 cache_found = True
             except:
                 print("No se encontró el archivo de cache, se procederá a generar uno nuevo.")
@@ -243,15 +257,14 @@ class Materias:
 
 class Generador:
 
-    def __init__(self, materias : Materias, df = None, indisponibilidad = bitarray(30*6)):
-        self.materias = materias
-        self.claves = materias.claves_mat
+    def __init__(self, df = None):
+        self.materias = Materias()
+        self.claves = self.materias.claves_mat
         self._lista_horarios = list()
         self.combinaciones = 0
         self.grupos_per_materia = None
         self.df = df
-        self.indisp = indisponibilidad
-        self._generate()
+        self.indisp = self._get_indisponibilidad()
 
     @property
     def lista_horarios(self):
@@ -264,7 +277,22 @@ class Generador:
         df_ordenado = df_ordenado.reset_index(drop=True)
         return df_ordenado
 
+    def _get_indisponibilidad(self):
+        """
+        Obtiene la indisponibilidad del usuario.
+        """
+        indisponibilidad = bitarray()
 
+        try: 
+            with open('indisponibilidad.bin', 'rb') as fh:
+                indisponibilidad.fromfile(fh)
+                indisponibilidad = indisponibilidad[:30*6]
+        except FileNotFoundError:
+            print("No se encontró una agenda guardada")
+            indisponibilidad = bitarray(30 * 6)
+            indisponibilidad.setall(False)
+
+        return indisponibilidad
 
     # #Verificación por horario
     # def _hayTraslapeHoras(self,a,b): #DataFrame, comparativa a comparativa b
@@ -433,7 +461,7 @@ class Generador:
 
 
 
-    def _generate(self):
+    def generar_horarios(self):
         if self.df != None:
             horario = df.head(0)
             self._combinarMaterias(horario,self.claves[0])
