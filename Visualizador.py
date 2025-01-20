@@ -47,12 +47,12 @@ class MenuClaves(ttk.Frame):
         self.input_frame.pack(fill="both", expand=True)
         
         # Añade los placeholder para las claves
-        
         self.load_subject_names()
 
 
         if not self.load_claves():
             self.add_key_placeholder()
+            self.loading = False
 
         if len(self.claves) < self.max_claves:
             self.add_key_placeholder()
@@ -62,6 +62,7 @@ class MenuClaves(ttk.Frame):
             self, text="Continuar", command=self.save_and_close
         )
         self.continue_button.pack(side="bottom", pady=20)
+        self.loading = False
 
     def add_key_placeholder(self, existing_key=""):
         """
@@ -156,14 +157,11 @@ class MenuClaves(ttk.Frame):
                 claves = pickle.load(file)
 
             if not claves:
-                self.loading = False
                 print("No claves found.")
                 return False
 
             for key in claves:
                 self.add_key_placeholder(existing_key=key)
-                
-            self.loading = False
             return True
         except FileNotFoundError:
             print("No claves file found.")
