@@ -65,7 +65,7 @@ Generador de Horarios es una herramienta en Python diseñada para automatizar y 
    `pip install -r requirements.txt`
 3. Configurar claves de materias:
 4. Ejecutar Visualizador.py para acceder a la interfaz gráfica.
-5. Agregar hasta 8 claves de materias y seleccionar bloques de indisponibilidad.
+5. Agregar hasta 8 claves de materias, hacer clic en "Continuar" y seleccionar bloques de indisponibilidad.
 6. Hacer clic en "Generar" para guardar las selecciones.
 
 **Generar horarios:**
@@ -116,7 +116,7 @@ El cache en cache_materias.xlsx acelera la construcción del DataFrame cuando no
 
 ### 🌈 Características Destacadas
 
-✅ Bitarray eficiente: Representación de disponibilidad con bloques de 30 minutoss×6 días, permitiendo operaciones bitwise.
+✅ Bitarray eficiente: Representación de disponibilidad con bloques de 30 minutoss×6 días, permitiendo operaciones bitwise.
 ✅ Ordenamiento inteligente: Priorización de materias con menos opciones para pruning temprano.
 ✅ Interfaz gráfica amigable: tkinter para ingresar claves y definir indisponibilidades de manera visual.
 ✅ Visualización profesional: Gráficos Gantt con colores y etiquetas legibles.
@@ -139,5 +139,3 @@ El cache en cache_materias.xlsx acelera la construcción del DataFrame cuando no
 🔹 Exportar a PDF/calendarios: Integrar con calendarios externos o generar PDFs.
 
 `Hecho con ❤️ para mejorar tu experiencia universitaria y ahorrar tiempo en la creación de horarios.`
-
-
